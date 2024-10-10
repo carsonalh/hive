@@ -3,8 +3,7 @@ import * as THREE from 'three';
 export const TILE_GAP = 0.05;
 export const RADIUS = .8;
 
-function createTile(backgroundColor: THREE.ColorRepresentation, foregroundColor: THREE.ColorRepresentation,
-    imagePath: string) {
+function createHexagonShape() {
     const shape = new THREE.Shape();
     shape.moveTo(RADIUS, 0);
 
@@ -15,6 +14,15 @@ function createTile(backgroundColor: THREE.ColorRepresentation, foregroundColor:
 
     shape.lineTo(RADIUS, 0);
     shape.closePath();
+
+    return shape;
+}
+
+export const HEXAGON_SHAPE = createHexagonShape();
+
+function createTile(backgroundColor: THREE.ColorRepresentation, foregroundColor: THREE.ColorRepresentation,
+    imagePath: string) {
+    const shape = HEXAGON_SHAPE.clone();
 
     const geometry = new THREE.ExtrudeGeometry(shape, { 
         depth: .5,

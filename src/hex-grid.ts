@@ -29,6 +29,43 @@ export class HexGrid {
 
         return q;
     }
+
+    /** Rounds to an integer hex coordinate */
+    public euclideanToHex(vector: THREE.Vector2): HexVector {
+        const toTransform = vector.clone();
+
+        const basisInverse = new THREE.Matrix3(
+            1, Math.sqrt(3) / 3, 0,
+            0, -2 * Math.sqrt(3) / 3, 0,
+            0, 0, 1
+        );
+        toTransform.multiplyScalar(1 / this.horizontalSpacing);
+        toTransform.applyMatrix3(basisInverse);
+
+        // implemented from https://www.redblobgames.com/grids/hexagons/#rounding
+
+        const fractionalQ = toTransform.x;
+        const fractionalR = toTransform.y;
+        const fractionalS = -toTransform.x - toTransform.y;
+
+        let q = Math.round(fractionalQ);
+        let r = Math.round(fractionalR);
+        let s = Math.round(fractionalS);
+
+        const qDiff = Math.abs(q - fractionalQ);
+        const rDiff = Math.abs(r - fractionalR);
+        const sDiff = Math.abs(s - fractionalS);
+
+        if (qDiff > rDiff && qDiff > sDiff) {
+            q = -r - s;
+        } else if (rDiff > sDiff) {
+            r = -q-s;
+        } else {
+            s = -q-r;
+        }
+
+        return new HexVector(q, r);
+    }
 }
 
 export class HexVector {
