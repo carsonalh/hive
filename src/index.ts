@@ -11,12 +11,66 @@ const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setAnimationLoop(animate);
 let placed: THREE.Mesh | null = null;
+
+const LEFT_BUTTON = 0;
+const MIDDLE_BUTTON = 1;
+const RIGHT_BUTTON = 2;
+const BACK_BUTTON = 3;
+const FORWARD_BUTTON = 4;
+
+const mouseState = {
+    rightButtonDown: false,
+};
+
+renderer.domElement.oncontextmenu = e => {
+    return false;
+}
+
 renderer.domElement.onmousedown = e => {
-    const point = new THREE.Vector2(
-        2 * (e.clientX / window.innerWidth) - 1,
-        2 * (e.clientY / window.innerHeight) - 1
-    );
-    point.multiply({ x: 5, y: -5 * window.innerHeight / window.innerWidth });
+    switch (e.button) {
+        case LEFT_BUTTON:
+            onLeftMouseDown(e);
+            break;
+        case RIGHT_BUTTON:
+            mouseState.rightButtonDown = true;
+            break;
+    }
+};
+
+renderer.domElement.onmouseup = e => {
+    switch (e.button) {
+        case RIGHT_BUTTON:
+            mouseState.rightButtonDown = false;
+            break;
+    }
+};
+
+renderer.domElement.onmousemove = e => {
+    if (mouseState.rightButtonDown) {
+        onRightMouseMove(e.movementX, e.movementY);
+    }
+};
+
+function onRightMouseMove(deltaX: number, deltaY: number) {
+    const delta = new THREE.Vector3(deltaX, -deltaY, 0);
+    delta.multiply({ x: 2 / window.innerWidth, y: 2 / window.innerHeight, z: 0 });
+    delta.applyMatrix4(camera.projectionMatrixInverse);
+    delta.z = 0;
+    camera.position.sub(delta);
+    // TODO make a bounding box for the camera
+}
+
+function onLeftMouseDown(e: MouseEvent) {
+    const clicked = new THREE.Vector3(e.clientX, e.clientY, 0);
+    // to screen coords
+    clicked.applyMatrix4(new THREE.Matrix4(
+        2 / window.innerWidth, 0, 0, -1,
+        0, -2 / window.innerHeight, 0, 1,
+        0, 0, 1, 0,
+        0, 0, 0, 1
+    ));
+    clicked.applyMatrix4(camera.projectionMatrixInverse);
+    clicked.add(camera.position);
     if (placed != null) {
         scene.remove(placed);
     }
@@ -24,19 +78,22 @@ renderer.domElement.onmousedown = e => {
     const geometry = new THREE.ShapeGeometry(shape);
     const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
     const marker = new THREE.Mesh(geometry, material);
-    const hex = grid.euclideanToHex(point);
-    console.log(`clicked on hex ${hex}`);
+    const hex = grid.euclideanToHex(new THREE.Vector2(clicked.x, clicked.y));
     const hexPosition = grid.hexToEuclidean(hex)
     marker.position.set(hexPosition.x, hexPosition.y, 0);
     marker.rotateZ(1 / 12 * 2 * Math.PI)
     scene.add(marker);
     placed = marker;
-    // const pointGeometry = new THREE.SphereGeometry(0.5);
-    // const pointMesh = new THREE.Mesh(pointGeometry, pointMaterial);
-    // pointMesh.position.set(point.x, point.y, 0);
-    // scene.add(pointMesh);
-};
+}
+
 document.body.appendChild(renderer.domElement);
+
+window.onresize = e => {
+    camera.top = 5 * window.innerHeight / window.innerWidth;
+    camera.bottom = -5 * window.innerHeight / window.innerWidth;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+};
 
 const grid = new HexGrid();
 
@@ -50,8 +107,6 @@ const tiles: [THREE.Mesh, HexVector][] = [
 for (let i = 0; i < tiles.length; i++) {
     const tile = tiles[i][0].clone();
     const position2d = grid.hexToEuclidean(tiles[i][1]);
-    console.log(`with position ${tiles[i][1]}`)
-    console.log(`mapping to ${position2d.x}, ${position2d.y}`)
     tile.position.set(position2d.x, position2d.y, 0);
     scene.add(tile);
 }
