@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "test": "jest",
     "build": "webpack",
     "start": "webpack serve --mode development"
   },
@@ -14,9 +15,12 @@
     "three": "^0.169.0"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.13",
     "@types/three": "^0.169.0",
     "clean-webpack-plugin": "^4.0.0",
     "html-webpack-plugin": "^5.6.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
     "ts-loader": "^9.5.1",
     "typescript": "^5.6.2",
     "webpack": "^5.95.0",

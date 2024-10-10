@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { RADIUS, TILE_GAP } from "./tiles";
+import { RADIUS, TILE_GAP } from './constants';
 
 /**
  * See this article as an implementation guide, specifically the 'Axial' coordinates.
@@ -72,6 +72,15 @@ export class HexVector {
     private readonly _q: number;
     private readonly _r: number;
 
+    private static readonly ADJACENT_VECTORS_AT_ORIGIN = [
+        new HexVector(1, 0),
+        new HexVector(0, 1),
+        new HexVector(-1, 0),
+        new HexVector(0, -1),
+        new HexVector(1, -1),
+        new HexVector(-1, 1),
+    ];
+
     public get q() {
         return this._q;
     }
@@ -104,6 +113,14 @@ export class HexVector {
         }
 
         return new HexVector(scalar * this._q, scalar * this._r);
+    }
+
+    public adjacentVectors(): HexVector[] {
+        return HexVector.ADJACENT_VECTORS_AT_ORIGIN.map(v => v.add(this));
+    }
+
+    public equals(other: HexVector): boolean {
+        return this._q === other._q && this._r === other._r;
     }
 
     public toString(): string {

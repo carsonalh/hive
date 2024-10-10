@@ -1,7 +1,5 @@
 import * as THREE from 'three';
-
-export const TILE_GAP = 0.05;
-export const RADIUS = .8;
+import { RADIUS, TILE_GAP } from './constants';
 
 function createHexagonShape() {
     const shape = new THREE.Shape();
