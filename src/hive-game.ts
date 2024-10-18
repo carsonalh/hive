@@ -1,4 +1,4 @@
-import { HexVector } from "./hex-grid";
+import {HexMatrix, HexVector} from "./hex-grid";
 
 export enum HivePiece {
     QUEEN_BEE,
@@ -144,14 +144,29 @@ export class HiveGame {
                         return false;
                     }
 
-                    const neighbours = move.to.adjacentVectors().map(adj => this.board.find(p => p.position.equals(adj))).filter(adj => adj != null);
+                    const queue: HexVector[] = [];
+                    const seen = new Set<string>();
 
-                    if (neighbours.length === 0) {
-                        // the new tile to which to move must be connected to the hive
+                    queue.push(move.from);
+
+                    let node: HexVector | null = null;
+                    while ((node = queue.shift() ?? null) != null) {
+                        if (seen.has(node.toString())) {
+                            continue;
+                        }
+
+                        const neighbours = this.getAdjacentMoves(node);
+                        queue.push(...neighbours);
+
+                        seen.add(node.toString());
+                    }
+
+                    if (!seen.has(move.to.toString())) {
+                        // either the piece was not connected to the hive (an error may have already
+                        // been thrown), or freedom to move was not respected
                         return false;
                     }
 
-                    // TODO freedom to move
                     pieceToMove.position = move.to;
                 } else {
                     // TODO implement the other pieces
@@ -169,5 +184,84 @@ export class HiveGame {
         this.toMove = this.toMove === HiveColour.BLACK ? HiveColour.WHITE : HiveColour.BLACK;
 
         return true;
+    }
+
+    /**
+     * Gets adjacent tiles of the grid respecting freedom to move and the One Hive rule.
+     */
+    private getAdjacentMoves(fromTile: HexVector): HexVector[] {
+        const getAdjacentTilesForSearch = (v: HexVector) => this.board
+            .filter(p => v.adjacentVectors().find(adj => p.position.equals(adj)) != null && !p.position.equals(fromTile))
+            .map(p => p.position);
+
+        const initiallyAdjacentTiles = getAdjacentTilesForSearch(fromTile);
+
+        if (initiallyAdjacentTiles.length === 0) {
+            // this is an invalid state
+            throw new Error('cannot have a tile next to no others');
+        }
+
+        // do a flood fill on each of the adjacent tiles to find out if this
+        // tile is a bridge in the graph (component) of adjacent tiles
+        const startingTile = initiallyAdjacentTiles[0];
+        const queue: HexVector[] = [];
+        const seen = new Set<string>();
+
+        queue.push(...getAdjacentTilesForSearch(startingTile));
+
+        while (queue.length > 0) {
+            const next = queue.shift() as HexVector;
+
+            if (seen.has(next.toString())) {
+                continue;
+            }
+
+            queue.push(...getAdjacentTilesForSearch(next));
+            seen.add(next.toString());
+        }
+
+        const expectedNumTilesForNoPin = this.board.find(p => p.position.equals(fromTile)) == null
+            ? this.board.length
+            : this.board.length - 1;
+
+        if (seen.size !== expectedNumTilesForNoPin) {
+            // we could not get to every other position, we know that we started with a bridge, and
+            // so the One Hive rule would be violated
+            return [];
+        }
+
+        // we know that the current tile and the new tile must share a neighbour
+        const potentialNewTiles = fromTile.adjacentVectors()
+            .filter(v => this.board.find(p => p.position.equals(v)) == null);
+
+        const fromNeighbours = this.board.filter(p => fromTile.adjacentVectors().find(adj => adj.equals(p.position)));
+        const potentialNewTilesNeighbours = potentialNewTiles.map(newTile => this.board.filter(p => newTile.adjacentVectors().find(adj => adj.equals(p.position))));
+
+        // all the neighbouring tiles who share a neigbour with the original tile
+        const withSharedNeighbours = potentialNewTiles.filter((_, i) => fromNeighbours.filter(n => potentialNewTilesNeighbours[i].includes(n)).length !== 0);
+
+        // now we check freedom to move from fromTile to each tile in withSharedNeighbours
+
+        // a rotation matrix in hex space to rotate by 60 degrees, notice that this matrix to the
+        // sixth power is the identity
+        const rotate60 = new HexMatrix(
+            1, 1,
+            -1, 0
+        );
+
+        const rotate300 = new HexMatrix(
+            0, -1,
+            1, 1
+        );
+
+        const respectingFreedomToMove = withSharedNeighbours.filter(v => {
+            const differential = v.subtract(fromTile);
+            const clockwise = rotate60.transform(differential);
+            const antiClockwise = rotate300.transform(differential);
+            const toCheck = [clockwise.add(fromTile), antiClockwise.add(fromTile)];
+            return !toCheck.every(u => this.board.find(p => p.position.equals(u)) != null);
+        });
+
+        return respectingFreedomToMove;
     }
 }

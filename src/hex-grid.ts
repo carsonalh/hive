@@ -60,8 +60,6 @@ export class HexGrid {
             q = -r - s;
         } else if (rDiff > sDiff) {
             r = -q-s;
-        } else {
-            s = -q-r;
         }
 
         return new HexVector(q, r);
@@ -125,5 +123,59 @@ export class HexVector {
 
     public toString(): string {
         return `HexVector [${this._q}, ${this._r}]`;
+    }
+}
+
+export class HexMatrix {
+    public constructor(private a00: number, private a01: number,
+                       private a10: number, private a11: number) {
+    }
+
+    public transform(v: HexVector): HexVector {
+        return new HexVector(this.a00 * v.q + this.a01 * v.r,
+                             this.a10 * v.q + this.a11 * v.r);
+    }
+
+    public power(n: number): HexMatrix {
+        if (!Number.isInteger(n)) {
+            throw new RangeError('power must be an integer');
+        }
+
+        if (n < 0) {
+            throw new RangeError('power must be non-negative');
+        }
+
+        const result = new HexMatrix(1, 0, 0, 1);
+
+        while (--n > 0) {
+            result.leftMultiplyInPlace(this);
+        }
+
+        return result;
+    }
+
+    /**
+     * This matrix (A) multiplied with the other (B).  The result is AB
+     */
+    public multiply(B: HexMatrix): HexMatrix {
+        const cloned = B.clone();
+        cloned.leftMultiplyInPlace(this);
+        return cloned;
+    }
+
+    private clone(): HexMatrix {
+        return new HexMatrix(this.a00, this.a01, this.a10, this.a11);
+    }
+
+    private leftMultiplyInPlace(other: HexMatrix): void {
+        const a00 = other.a00 * this.a00 + other.a01 * this.a10;
+        const a01 = other.a00 * this.a01 + other.a01 * this.a11;
+        const a10 = other.a10 * this.a00 + other.a11 * this.a10;
+        const a11 = other.a10 * this.a01 + other.a11 * this.a11;
+
+        this.a00 = a00;
+        this.a01 = a01;
+        this.a10 = a10;
+        this.a11 = a11;
     }
 }

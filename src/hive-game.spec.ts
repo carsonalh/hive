@@ -1,5 +1,5 @@
-import { HexVector } from "./hex-grid";
-import { HiveBoardPiece, HiveColour, HiveGame, HivePiece } from "./hive-game";
+import {HexVector} from "./hex-grid";
+import {HiveBoardPiece, HiveColour, HiveGame, HivePiece} from "./hive-game";
 
 describe('preliminary tests', () => {
     it('has equality on the HexVector class', () => {
@@ -146,6 +146,24 @@ describe('hive game class tests', () => {
     });
 
     it('respects freedom to move on the ant', () => {
+        const game = new HiveGame();
+
+        // setup the space for an illegal freedom to move
+        game.executeMove({ type: 'place', piece: HivePiece.QUEEN_BEE, position: new HexVector(0, 0) });
+        game.executeMove({ type: 'place', piece: HivePiece.QUEEN_BEE, position: new HexVector(-1, 0) });
+        game.executeMove({ type: 'place', piece: HivePiece.GRASSHOPPER, position: new HexVector(1, -1) });
+        game.executeMove({ type: 'place', piece: HivePiece.GRASSHOPPER, position: new HexVector(-1, -1) });
+        game.executeMove({ type: 'place', piece: HivePiece.GRASSHOPPER, position: new HexVector(1, -2) });
+        game.executeMove({ type: 'place', piece: HivePiece.SOLDIER_ANT, position: new HexVector(-2, 0) });
+        game.executeMove({ type: 'place', piece: HivePiece.GRASSHOPPER, position: new HexVector(1, 0) });
+
+        // try and pull off the illegal move violating freedom to move
+        expect(
+            game.executeMove({ type: 'move', from: new HexVector(-2, 0), to: new HexVector(0, -1) })
+        ).toStrictEqual(false);
+    });
+
+    it('respects the one hive rule', () => {
     });
 
     it('can move a queen bee one tile around the hive', () => {
