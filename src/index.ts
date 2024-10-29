@@ -1,6 +1,25 @@
 import * as THREE from 'three';
 import { BLACK_QUEEN_BEE, BLACK_SOLDIER_ANT, HEXAGON_SHAPE, WHITE_QUEEN_BEE, WHITE_SOLDIER_ANT } from './tiles';
 import { HexGrid, HexVector } from './hex-grid';
+import './hive-game';
+
+declare const Go: any;
+const go = new Go(); // Create a new Go instance
+
+window.onload = async () => {
+    const response = await fetch('main.wasm');
+    const buffer = await response.arrayBuffer();
+    const { instance } = await WebAssembly.instantiate(buffer, go.importObject); // Use Go's import object
+
+    go.run(instance); // Run the Go instance
+    // Call your exported function from WebAssembly
+    let hiveGame = hive.createHiveGame();
+    console.dir(hiveGame);
+
+    hiveGame = hive.placeTile(hiveGame, hive.PIECE_TYPE_QUEEN_BEE, { q: 0, r: 0 });
+    hiveGame = hive.placeTile(hiveGame, hive.PIECE_TYPE_QUEEN_BEE, { q: -1, r: 0 });
+    console.dir(hiveGame);
+};
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x175c29);
