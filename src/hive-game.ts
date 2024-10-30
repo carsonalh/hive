@@ -7,9 +7,19 @@ interface IHexVector {
 
 interface HiveGameObject {
     createHiveGame(): unknown;
+
     placeTile(game: unknown, pieceType: number, position: IHexVector): [unknown, boolean];
+
     moveTile(game: unknown, from: IHexVector, to: IHexVector): [unknown, boolean];
+
     legalMoves(game: unknown, position: IHexVector): IHexVector[];
+
+    tiles(game: unknown): {
+        color: number,
+        stackHeight: number,
+        position: IHexVector,
+        pieceType: number
+    }[];
 
     COLOR_BLACK: number;
     COLOR_WHITE: number;
@@ -25,6 +35,11 @@ interface HiveGameObject {
 
 declare const hive: HiveGameObject;
 
+export enum HiveColor {
+    Black,
+    White,
+}
+
 export enum HivePieceType {
     QueenBee,
     SoldierAnt,
@@ -34,9 +49,17 @@ export enum HivePieceType {
     Mosquito,
 }
 
+export interface HiveTile {
+    color: HiveColor;
+    position: HexVector;
+    stackHeight: number;
+    pieceType: HivePieceType;
+}
+
 export class HiveGame {
     private game: unknown;
     private readonly pieceTypeMap: Record<HivePieceType, number>;
+    private readonly colorMap: Record<HiveColor, number>;
 
     public constructor() {
         this.game = hive.createHiveGame();
@@ -47,6 +70,11 @@ export class HiveGame {
             [HivePieceType.Beetle]: hive.PIECE_TYPE_BEETLE,
             [HivePieceType.Ladybug]: hive.PIECE_TYPE_LADYBUG,
             [HivePieceType.Mosquito]: hive.PIECE_TYPE_MOSQUITO,
+        };
+
+        this.colorMap = {
+            [HiveColor.Black]: hive.COLOR_BLACK,
+            [HiveColor.White]: hive.COLOR_WHITE,
         };
     }
 
@@ -75,6 +103,16 @@ export class HiveGame {
     public legalMoves(tile: HexVector): HexVector[] {
         const moves = hive.legalMoves(this.game, tile);
         return moves.map(m => new HexVector(m.q, m.r));
+    }
+
+    public tiles(): HiveTile[] {
+        const rawTiles = hive.tiles(this.game)
+        return rawTiles.map(t => ({
+            color: Number(Object.entries(this.colorMap).find(([_, v]) => v === t.color)?.[0]),
+            pieceType: Number(Object.entries(this.pieceTypeMap).find(([_, v]) => v === t.pieceType)?.[0]),
+            stackHeight: t.stackHeight,
+            position: new HexVector(t.position.q, t.position.r),
+        }));
     }
 
     /**

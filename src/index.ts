@@ -1,14 +1,19 @@
 import * as THREE from 'three';
+import {MeshBasicMaterial, ShapeGeometry} from 'three';
 import {
     BLACK_QUEEN_BEE,
     BLACK_SOLDIER_ANT,
-    HEXAGON_SHAPE, WHITE_BEETLE, WHITE_GRASSHOPPER, WHITE_LADYBUG, WHITE_MOSQUITO,
+    HEXAGON_SHAPE,
+    WHITE_BEETLE,
+    WHITE_GRASSHOPPER,
+    WHITE_LADYBUG,
+    WHITE_MOSQUITO,
     WHITE_QUEEN_BEE,
-    WHITE_SOLDIER_ANT, WHITE_SPIDER
+    WHITE_SOLDIER_ANT,
+    WHITE_SPIDER
 } from './tiles';
 import {HexGrid, HexVector} from './hex-grid';
 import {HiveGame, HivePieceType} from "./hive-game";
-import {MeshBasicMaterial, ShapeGeometry} from "three";
 
 declare const Go: any;
 const go = new Go(); // Create a new Go instance
