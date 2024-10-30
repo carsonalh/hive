@@ -1,35 +1,74 @@
 import * as THREE from 'three';
-import { BLACK_QUEEN_BEE, BLACK_SOLDIER_ANT, HEXAGON_SHAPE, WHITE_QUEEN_BEE, WHITE_SOLDIER_ANT } from './tiles';
-import { HexGrid, HexVector } from './hex-grid';
-import './hive-game';
+import {
+    BLACK_QUEEN_BEE,
+    BLACK_SOLDIER_ANT,
+    HEXAGON_SHAPE, WHITE_BEETLE, WHITE_GRASSHOPPER, WHITE_LADYBUG, WHITE_MOSQUITO,
+    WHITE_QUEEN_BEE,
+    WHITE_SOLDIER_ANT, WHITE_SPIDER
+} from './tiles';
+import {HexGrid, HexVector} from './hex-grid';
+import {HiveGame, HivePieceType} from "./hive-game";
+import {MeshBasicMaterial, ShapeGeometry} from "three";
 
 declare const Go: any;
 const go = new Go(); // Create a new Go instance
 
+let game: HiveGame;
+
 window.onload = async () => {
     const response = await fetch('main.wasm');
     const buffer = await response.arrayBuffer();
-    const { instance } = await WebAssembly.instantiate(buffer, go.importObject); // Use Go's import object
+    const {instance} = await WebAssembly.instantiate(buffer, go.importObject); // Use Go's import object
 
     go.run(instance); // Run the Go instance
-    // Call your exported function from WebAssembly
-    let hiveGame = hive.createHiveGame();
-    console.dir(hiveGame);
-
-    hiveGame = hive.placeTile(hiveGame, hive.PIECE_TYPE_QUEEN_BEE, { q: 0, r: 0 });
-    hiveGame = hive.placeTile(hiveGame, hive.PIECE_TYPE_QUEEN_BEE, { q: -1, r: 0 });
-    console.dir(hiveGame);
+    // Can only use WebAssembly imports here
+    game = new HiveGame();
+    game.debug();
 };
+
+const hudScene = new THREE.Scene();
+// hudScene.background = null;
+const hudCamera = new THREE.OrthographicCamera(-5, 5, 5 * window.innerHeight / window.innerWidth, -5 * window.innerHeight / window.innerWidth);
+const hudTiles = [
+    WHITE_QUEEN_BEE.clone(),
+    WHITE_SOLDIER_ANT.clone(),
+    WHITE_SPIDER.clone(),
+    WHITE_GRASSHOPPER.clone(),
+    WHITE_BEETLE.clone(),
+    WHITE_LADYBUG.clone(),
+    WHITE_MOSQUITO.clone()
+];
+
+const shape = new THREE.Shape();
+shape.moveTo(0, -1);
+shape.lineTo(0, 1);
+shape.lineTo(10 / 7, 1);
+shape.lineTo(10 / 7, -1);
+shape.closePath()
+const square = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({color: new THREE.Color(0xff0000)}))
+
+let selected: number | HexVector | null = null;
+
+for (let i = 0; i < hudTiles.length; i++) {
+    const x = -5 + 10 / 7 * i + (10 / 7) / 2;
+    const y = hudCamera.top - 1;
+
+    const tile = hudTiles[i];
+    tile.position.set(x, y, 0)
+    hudScene.add(tile);
+}
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x175c29);
 // const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
 const camera = new THREE.OrthographicCamera(-5, 5, 5 * window.innerHeight / window.innerWidth, -5 * window.innerHeight / window.innerWidth);
 
-const renderer = new THREE.WebGLRenderer();
+const renderer = new THREE.WebGLRenderer({alpha: true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setAnimationLoop(animate);
-let placed: THREE.Mesh | null = null;
+renderer.autoClear = false;
+const placed = new THREE.Mesh(new ShapeGeometry(HEXAGON_SHAPE.clone()), new MeshBasicMaterial({ color: 0xff0000 }));
+placed.rotateZ(1 / 12 * 2 * Math.PI);
 
 const LEFT_BUTTON = 0;
 const MIDDLE_BUTTON = 1;
@@ -72,7 +111,7 @@ renderer.domElement.onmousemove = e => {
 
 function onRightMouseMove(deltaX: number, deltaY: number) {
     const delta = new THREE.Vector3(deltaX, -deltaY, 0);
-    delta.multiply({ x: 2 / window.innerWidth, y: 2 / window.innerHeight, z: 0 });
+    delta.multiply({x: 2 / window.innerWidth, y: 2 / window.innerHeight, z: 0});
     delta.applyMatrix4(camera.projectionMatrixInverse);
     delta.z = 0;
     camera.position.sub(delta);
@@ -89,20 +128,27 @@ function onLeftMouseDown(e: MouseEvent) {
         0, 0, 0, 1
     ));
     clicked.applyMatrix4(camera.projectionMatrixInverse);
-    clicked.add(camera.position);
-    if (placed != null) {
-        scene.remove(placed);
+    // hit test for hud first
+    if (selected != null) {
+        if (typeof selected === 'number') {
+            hudScene.remove(square)
+        } else {
+            scene.remove(placed)
+        }
     }
-    const shape = HEXAGON_SHAPE.clone();
-    const geometry = new THREE.ShapeGeometry(shape);
-    const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-    const marker = new THREE.Mesh(geometry, material);
-    const hex = grid.euclideanToHex(new THREE.Vector2(clicked.x, clicked.y));
-    const hexPosition = grid.hexToEuclidean(hex)
-    marker.position.set(hexPosition.x, hexPosition.y, 0);
-    marker.rotateZ(1 / 12 * 2 * Math.PI)
-    scene.add(marker);
-    placed = marker;
+    if (clicked.y > camera.top - 2) {
+        const tileIndex = Math.floor((clicked.x + 5) * 7 / 10)
+        selected = tileIndex;
+        square.position.set(-5 + 10 / 7 * tileIndex, hudCamera.top - 1, -1)
+        hudScene.add(square);
+    } else {
+        clicked.add(camera.position);
+        const hex = grid.euclideanToHex(new THREE.Vector2(clicked.x, clicked.y));
+        const hexPosition = grid.hexToEuclidean(hex)
+        placed.position.set(hexPosition.x, hexPosition.y, 0);
+        scene.add(placed);
+        selected = hex;
+    }
 }
 
 document.body.appendChild(renderer.domElement);
@@ -111,6 +157,12 @@ window.onresize = e => {
     camera.top = 5 * window.innerHeight / window.innerWidth;
     camera.bottom = -5 * window.innerHeight / window.innerWidth;
     camera.updateProjectionMatrix();
+    hudCamera.top = 5 * window.innerHeight / window.innerWidth;
+    hudCamera.bottom = -5 * window.innerHeight / window.innerWidth;
+    hudCamera.updateProjectionMatrix();
+    for (const tile of hudTiles) {
+        tile.position.y = hudCamera.top - 1;
+    }
     renderer.setSize(window.innerWidth, window.innerHeight);
 };
 
@@ -131,7 +183,11 @@ for (let i = 0; i < tiles.length; i++) {
 }
 
 camera.position.z = 5;
+hudCamera.position.z = 5;
 
 function animate() {
+    renderer.clear();
     renderer.render(scene, camera);
+    renderer.clearDepth();
+    renderer.render(hudScene, hudCamera);
 }
