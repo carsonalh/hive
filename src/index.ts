@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import {MeshBasicMaterial, ShapeGeometry} from 'three';
 import {
+    BLACK_BEETLE,
+    BLACK_GRASSHOPPER, BLACK_LADYBUG, BLACK_MOSQUITO,
     BLACK_QUEEN_BEE,
-    BLACK_SOLDIER_ANT,
+    BLACK_SOLDIER_ANT, BLACK_SPIDER,
     HEXAGON_SHAPE,
     WHITE_BEETLE,
     WHITE_GRASSHOPPER,
@@ -13,7 +15,7 @@ import {
     WHITE_SPIDER
 } from './tiles';
 import {HexGrid, HexVector} from './hex-grid';
-import {HiveGame, HivePieceType} from "./hive-game";
+import {HiveColor, HiveGame, HivePieceType, HiveTile} from "./hive-game";
 
 declare const Go: any;
 const go = new Go(); // Create a new Go instance
@@ -34,14 +36,14 @@ window.onload = async () => {
 const hudScene = new THREE.Scene();
 // hudScene.background = null;
 const hudCamera = new THREE.OrthographicCamera(-5, 5, 5 * window.innerHeight / window.innerWidth, -5 * window.innerHeight / window.innerWidth);
-const hudTiles = [
-    WHITE_QUEEN_BEE.clone(),
-    WHITE_SOLDIER_ANT.clone(),
-    WHITE_SPIDER.clone(),
-    WHITE_GRASSHOPPER.clone(),
-    WHITE_BEETLE.clone(),
-    WHITE_LADYBUG.clone(),
-    WHITE_MOSQUITO.clone()
+const hudTiles: [THREE.Mesh, HivePieceType][] = [
+    [WHITE_QUEEN_BEE.clone(), HivePieceType.QueenBee],
+    [WHITE_SOLDIER_ANT.clone(), HivePieceType.SoldierAnt],
+    [WHITE_SPIDER.clone(), HivePieceType.Spider],
+    [WHITE_GRASSHOPPER.clone(), HivePieceType.Grasshopper],
+    [WHITE_BEETLE.clone(), HivePieceType.Beetle],
+    [WHITE_LADYBUG.clone(), HivePieceType.Ladybug],
+    [WHITE_MOSQUITO.clone(), HivePieceType.Mosquito],
 ];
 
 const shape = new THREE.Shape();
@@ -58,7 +60,7 @@ for (let i = 0; i < hudTiles.length; i++) {
     const x = -5 + 10 / 7 * i + (10 / 7) / 2;
     const y = hudCamera.top - 1;
 
-    const tile = hudTiles[i];
+    const tile = hudTiles[i][0];
     tile.position.set(x, y, 0)
     hudScene.add(tile);
 }
@@ -152,7 +154,72 @@ function onLeftMouseDown(e: MouseEvent) {
         const hexPosition = grid.hexToEuclidean(hex)
         placed.position.set(hexPosition.x, hexPosition.y, 0);
         scene.add(placed);
-        selected = hex;
+        if (typeof selected === 'number') { // we have selected a piece and are now clicking to place it
+            const selectedTile = hudTiles[selected][1];
+            const color = game.colorToMove();
+            const success = game.placeTile(selectedTile, hex);
+
+            if (!success) {
+                throw new Error('unhandled: player places a tile illegally')
+            }
+
+            let mesh: THREE.Mesh;
+            switch (color) {
+            case HiveColor.White:
+                switch (selectedTile) {
+                case HivePieceType.QueenBee: mesh = WHITE_QUEEN_BEE.clone(); break;
+                case HivePieceType.SoldierAnt: mesh = WHITE_SOLDIER_ANT.clone(); break;
+                case HivePieceType.Spider: mesh = WHITE_SPIDER.clone(); break;
+                case HivePieceType.Grasshopper: mesh = WHITE_GRASSHOPPER.clone(); break;
+                case HivePieceType.Beetle: mesh = WHITE_BEETLE.clone(); break;
+                case HivePieceType.Ladybug: mesh = WHITE_LADYBUG.clone(); break;
+                case HivePieceType.Mosquito: mesh = WHITE_MOSQUITO.clone(); break;
+                }
+                break;
+            case HiveColor.Black:
+                switch (selectedTile) {
+                case HivePieceType.QueenBee: mesh = BLACK_QUEEN_BEE.clone(); break;
+                case HivePieceType.SoldierAnt: mesh = BLACK_SOLDIER_ANT.clone(); break;
+                case HivePieceType.Spider: mesh = BLACK_SPIDER.clone(); break;
+                case HivePieceType.Grasshopper: mesh = BLACK_GRASSHOPPER.clone(); break;
+                case HivePieceType.Beetle: mesh = BLACK_BEETLE.clone(); break;
+                case HivePieceType.Ladybug: mesh = BLACK_LADYBUG.clone(); break;
+                case HivePieceType.Mosquito: mesh = BLACK_MOSQUITO.clone(); break;
+                }
+                break;
+            }
+
+            const position2d = grid.hexToEuclidean(hex);
+            mesh.position.set(position2d.x, position2d.y, 0);
+            scene.add(mesh);
+            meshes.push(mesh);
+            selected = null;
+        } else if (selected instanceof HexVector) {
+            // we rely on the facts that 'game' never re-orders the tiles, and that tiles
+            // cannot be removed from play
+            const top: string | null = Object
+                .entries(game.tiles())
+                .filter(([_, t]) => t.position.equals(selected as HexVector))
+                .reduce(([i, t], [j, u]) => t.stackHeight > u.stackHeight ? [i, t] : [j, u])[0]?.[0] ?? null;
+
+
+            if (top != null) {
+                console.log('found a real tile to select')
+                const selectedTileIndex = Number(top);
+                const success = game.moveTile(selected, hex);
+
+                if (!success) {
+                    throw new Error('unhandled: player moves a tile illegally')
+                }
+
+                const position2d = grid.hexToEuclidean(hex);
+                meshes[selectedTileIndex].position.set(position2d.x, position2d.y, 0);
+            }
+
+            selected = null;
+        } else {
+            selected = hex;
+        }
     }
 }
 
@@ -166,26 +233,14 @@ window.onresize = e => {
     hudCamera.bottom = -5 * window.innerHeight / window.innerWidth;
     hudCamera.updateProjectionMatrix();
     for (const tile of hudTiles) {
-        tile.position.y = hudCamera.top - 1;
+        tile[0].position.y = hudCamera.top - 1;
     }
     renderer.setSize(window.innerWidth, window.innerHeight);
 };
 
 const grid = new HexGrid();
 
-const tiles: [THREE.Mesh, HexVector][] = [
-    [WHITE_QUEEN_BEE, new HexVector(0, 0)],
-    [WHITE_SOLDIER_ANT, new HexVector(0, 1)],
-    [BLACK_QUEEN_BEE, new HexVector(1, 0)],
-    [BLACK_SOLDIER_ANT, new HexVector(1, 1)]
-];
-
-for (let i = 0; i < tiles.length; i++) {
-    const tile = tiles[i][0].clone();
-    const position2d = grid.hexToEuclidean(tiles[i][1]);
-    tile.position.set(position2d.x, position2d.y, 0);
-    scene.add(tile);
-}
+const meshes: THREE.Mesh[] = [];
 
 camera.position.z = 5;
 hudCamera.position.z = 5;

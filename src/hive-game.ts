@@ -21,6 +21,8 @@ interface HiveGameObject {
         pieceType: number
     }[];
 
+    colorToMove(game: unknown): number;
+
     COLOR_BLACK: number;
     COLOR_WHITE: number;
 
@@ -43,6 +45,7 @@ export enum HiveColor {
 export enum HivePieceType {
     QueenBee,
     SoldierAnt,
+    Spider,
     Grasshopper,
     Beetle,
     Ladybug,
@@ -66,6 +69,7 @@ export class HiveGame {
         this.pieceTypeMap = {
             [HivePieceType.QueenBee]: hive.PIECE_TYPE_QUEEN_BEE,
             [HivePieceType.SoldierAnt]: hive.PIECE_TYPE_SOLDIER_ANT,
+            [HivePieceType.Spider]: hive.PIECE_TYPE_SPIDER,
             [HivePieceType.Grasshopper]: hive.PIECE_TYPE_GRASSHOPPER,
             [HivePieceType.Beetle]: hive.PIECE_TYPE_BEETLE,
             [HivePieceType.Ladybug]: hive.PIECE_TYPE_LADYBUG,
@@ -78,26 +82,22 @@ export class HiveGame {
         };
     }
 
-    public placeTile(pieceType: HivePieceType, where: HexVector) {
+    public placeTile(pieceType: HivePieceType, where: HexVector): boolean {
         let game: unknown, success: boolean;
         [game, success] = hive.placeTile(this.game, this.pieceTypeMap[pieceType], where);
 
-        if (!success) {
-            throw new Error('internal error trying to place tile')
-        }
-
         this.game = game;
+
+        return success;
     }
 
-    public moveTile(from: HexVector, to: HexVector) {
+    public moveTile(from: HexVector, to: HexVector): boolean {
         let game: unknown, success: boolean;
         [game, success] = hive.moveTile(this.game, from, to);
 
-        if (!success) {
-            throw new Error('internal error trying to move tile')
-        }
-
         this.game = game;
+
+        return success;
     }
 
     public legalMoves(tile: HexVector): HexVector[] {
@@ -108,11 +108,16 @@ export class HiveGame {
     public tiles(): HiveTile[] {
         const rawTiles = hive.tiles(this.game)
         return rawTiles.map(t => ({
-            color: Number(Object.entries(this.colorMap).find(([_, v]) => v === t.color)?.[0]),
-            pieceType: Number(Object.entries(this.pieceTypeMap).find(([_, v]) => v === t.pieceType)?.[0]),
+            color: Number(Object.entries(this.colorMap).find(([_, v]) => v === t.color)![0]),
+            pieceType: Number(Object.entries(this.pieceTypeMap).find(([_, v]) => v === t.pieceType)![0]),
             stackHeight: t.stackHeight,
             position: new HexVector(t.position.q, t.position.r),
         }));
+    }
+
+    public colorToMove(): HiveColor {
+        const color = hive.colorToMove(this.game);
+        return Number(Object.entries(this.colorMap).find(([_, v]) => v === color)![0]);
     }
 
     /**
