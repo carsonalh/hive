@@ -5,6 +5,13 @@ interface IHexVector {
     r: number;
 }
 
+interface ITile {
+    color: number;
+    stackHeight: number;
+    position: IHexVector;
+    pieceType: number;
+}
+
 interface HiveGameObject {
     createHiveGame(): unknown;
 
@@ -14,12 +21,11 @@ interface HiveGameObject {
 
     legalMoves(game: unknown, position: IHexVector): IHexVector[];
 
-    tiles(game: unknown): {
-        color: number,
-        stackHeight: number,
-        position: IHexVector,
-        pieceType: number
-    }[];
+    tiles(game: unknown): ITile[];
+
+    idOfLastPlaced(game: unknown): number;
+
+    idOfTileAt(game: unknown, position: IHexVector): number;
 
     colorToMove(game: unknown): number;
 
@@ -113,6 +119,26 @@ export class HiveGame {
             stackHeight: t.stackHeight,
             position: new HexVector(t.position.q, t.position.r),
         }));
+    }
+
+    public idOfLastPlaced(): number | null {
+        const id = hive.idOfLastPlaced(this.game);
+
+        if (id < 0) {
+            return null;
+        }
+
+        return id;
+    }
+
+    public idOfTileAt(position: HexVector): number | null {
+        const id = hive.idOfTileAt(this.game, position);
+
+        if (id < 0) {
+            return null;
+        }
+
+        return id;
     }
 
     public colorToMove(): HiveColor {
