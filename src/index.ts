@@ -24,121 +24,34 @@ import {
     SCROLL_FACTOR,
     STACK_HEIGHT_DISTANCE
 } from "./constants";
+import ErrorModal from "./error-modal";
+import {MouseState} from "./types";
+import HUD from "./hud";
 
 declare const Go: any;
 const go = new Go(); // Create a new Go instance
 
 let game: HiveGame;
+let hud: HUD;
+let incorrectMoveModal: ErrorModal;
 
 window.onload = async () => {
     const response = await fetch('main.wasm');
     const buffer = await response.arrayBuffer();
     const {instance} = await WebAssembly.instantiate(buffer, go.importObject); // Use Go's import object
 
+    incorrectMoveModal = new ErrorModal({message: 'The attempted move was illegal'});
+
     go.run(instance); // Run the Go instance
     // Can only use WebAssembly imports here
     game = new HiveGame();
     game.debug();
 
-    updateHudTiles();
+    hud = new HUD(game);
+    renderer.setAnimationLoop(animate);
 };
 
-const hudScene = new THREE.Scene();
-// hudScene.background = null;
-const hudCamera = new THREE.OrthographicCamera(-5, 5, 5 * window.innerHeight / window.innerWidth, -5 * window.innerHeight / window.innerWidth);
-const hudTiles: [THREE.Mesh, HivePieceType][] = [
-    [WHITE_QUEEN_BEE.clone(), HivePieceType.QueenBee],
-    [WHITE_SOLDIER_ANT.clone(), HivePieceType.SoldierAnt],
-    [WHITE_SPIDER.clone(), HivePieceType.Spider],
-    [WHITE_GRASSHOPPER.clone(), HivePieceType.Grasshopper],
-    [WHITE_BEETLE.clone(), HivePieceType.Beetle],
-    [WHITE_LADYBUG.clone(), HivePieceType.Ladybug],
-    [WHITE_MOSQUITO.clone(), HivePieceType.Mosquito],
-];
-
-const hudElements = [
-    document.createElement('p'),
-    document.createElement('p'),
-    document.createElement('p'),
-    document.createElement('p'),
-    document.createElement('p'),
-    document.createElement('p'),
-    document.createElement('p'),
-];
-
-const shape = new THREE.Shape();
-shape.moveTo(0, -1);
-shape.lineTo(0, 1);
-shape.lineTo(10 / 7, 1);
-shape.lineTo(10 / 7, -1);
-shape.closePath()
-const square = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({color: new THREE.Color(0xff0000)}))
-
 let selected: number | HexVector | null = null;
-
-let appended = false;
-
-function updateHudTiles() {
-    for (const [tile, _] of hudTiles) {
-        hudScene.remove(tile);
-    }
-
-    switch (game.colorToMove()) {
-    case HiveColor.Black:
-        console.log('they should be black now')
-        hudTiles[0][0] = BLACK_QUEEN_BEE.clone();
-        hudTiles[1][0] = BLACK_SOLDIER_ANT.clone();
-        hudTiles[2][0] = BLACK_SPIDER.clone();
-        hudTiles[3][0] = BLACK_GRASSHOPPER.clone();
-        hudTiles[4][0] = BLACK_BEETLE.clone();
-        hudTiles[5][0] = BLACK_LADYBUG.clone();
-        hudTiles[6][0] = BLACK_MOSQUITO.clone();
-        break;
-    case HiveColor.White:
-        console.log('they should be white now')
-        hudTiles[0][0] = WHITE_QUEEN_BEE.clone();
-        hudTiles[1][0] = WHITE_SOLDIER_ANT.clone();
-        hudTiles[2][0] = WHITE_SPIDER.clone();
-        hudTiles[3][0] = WHITE_GRASSHOPPER.clone();
-        hudTiles[4][0] = WHITE_BEETLE.clone();
-        hudTiles[5][0] = WHITE_LADYBUG.clone();
-        hudTiles[6][0] = WHITE_MOSQUITO.clone();
-        break;
-    }
-
-    if (!appended) {
-        const body = document.querySelector('body')!
-        body.style.position = 'relative';
-        renderer.domElement.style.position = 'absolute';
-        for (const element of hudElements) {
-            body.appendChild(element);
-        }
-    }
-
-    for (let i = 0; i < hudTiles.length; i++) {
-        hudElements[i].style.position = 'absolute';
-
-        const x = -5 + 10 / 7 * i + (10 / 7) / 2;
-        const y = hudCamera.top - 1;
-
-        const positionNDC = new THREE.Vector3(x, y, 0);
-        positionNDC.applyMatrix4(hudCamera.projectionMatrix);
-        console.log(positionNDC)
-        const windowX = (positionNDC.x / 2 + 1 / 2) * window.innerWidth;
-        const windowY = (-positionNDC.y / 2 + 1 / 2) * window.innerHeight;
-
-        const offsetX = -5;
-        const offsetY = -10;
-        hudElements[i].style.left = `${windowX + offsetX}px`;
-        hudElements[i].style.top = `${windowY + offsetY}px`;
-
-        hudElements[i].textContent = String(game.getTilesRemaining(game.colorToMove(), hudTiles[i][1]));
-
-        const tile = hudTiles[i][0];
-        tile.position.set(x, y, 0)
-        hudScene.add(tile);
-    }
-}
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x175c29);
@@ -148,7 +61,6 @@ camera.rotateOnWorldAxis(new THREE.Vector3(1, 0, 0), Math.PI / 4)
 
 const renderer = new THREE.WebGLRenderer({alpha: true});
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setAnimationLoop(animate);
 renderer.autoClear = false;
 const placed = new THREE.Mesh(new THREE.ShapeGeometry(HEXAGON_SHAPE.clone()), new THREE.MeshBasicMaterial({color: 0xff0000}));
 placed.rotateZ(1 / 12 * 2 * Math.PI);
@@ -159,8 +71,10 @@ const RIGHT_BUTTON = 2;
 // const BACK_BUTTON = 3;
 // const FORWARD_BUTTON = 4;
 
-const mouseState = {
+const mouseState: MouseState = {
     rightButtonDown: false,
+    leftButtonDown: false,
+    middleButtonDown: false,
 };
 
 renderer.domElement.oncontextmenu = _ => {
@@ -235,10 +149,15 @@ function onLeftMouseDown(e: MouseEvent) {
     // hit test for hud first
     if (selected != null) {
         if (typeof selected === 'number') {
-            hudScene.remove(square)
+            // @ts-ignore
+            hud.scene.remove(hud.square)
         } else {
             scene.remove(placed)
         }
+    }
+
+    if (hud.onClick(e, mouseState)) {
+        return;
     }
 
     const raycaster = new THREE.Raycaster();
@@ -248,60 +167,56 @@ function onLeftMouseDown(e: MouseEvent) {
     );
     // console.log(clickedWorld)
     const gameSurface = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-    raycaster.setFromCamera(clicked, hudCamera);
+    raycaster.setFromCamera(clicked, hud.camera);
     const clickedWorld = new THREE.Vector3();
     raycaster.ray.intersectPlane(gameSurface, clickedWorld);
-    if (clickedWorld.y > hudCamera.top - 2) {
-        const tileIndex = Math.floor((clickedWorld.x + 5) * 7 / 10)
-        selected = tileIndex;
-        square.position.set(-5 + 10 / 7 * tileIndex, hudCamera.top - 1, -1)
-        hudScene.add(square);
-    } else {
+    if (!hud.onClick(e, mouseState)) {
         raycaster.setFromCamera(clicked, camera);
         raycaster.ray.intersectPlane(gameSurface, clickedWorld)
         const hex = grid.euclideanToHex(new THREE.Vector2(clickedWorld.x, clickedWorld.y));
         const hexPosition = grid.hexToEuclidean(hex)
         placed.position.set(hexPosition.x, hexPosition.y, 0);
         scene.add(placed);
-        if (typeof selected === 'number') { // we have selected a piece and are now clicking to place it
-            const selectedTile = hudTiles[selected][1];
+        let selectedPieceType: HivePieceType | null;
+        if ((selectedPieceType = hud.selectedPieceTypeForPlacement()) != null) { // we have selected a piece and are now clicking to place it
             const color = game.colorToMove();
-            const success = game.placeTile(selectedTile, hex);
+            const success = game.placeTile(selectedPieceType, hex);
 
-            if (!success) {
-                throw new Error('unhandled: player places a tile illegally')
+            if (success) {
+                let mesh: THREE.Mesh;
+                switch (color) {
+                    case HiveColor.White:
+                        switch (selectedPieceType) {
+                            case HivePieceType.QueenBee: mesh = WHITE_QUEEN_BEE.clone(); break;
+                            case HivePieceType.SoldierAnt: mesh = WHITE_SOLDIER_ANT.clone(); break;
+                            case HivePieceType.Spider: mesh = WHITE_SPIDER.clone(); break;
+                            case HivePieceType.Grasshopper: mesh = WHITE_GRASSHOPPER.clone(); break;
+                            case HivePieceType.Beetle: mesh = WHITE_BEETLE.clone(); break;
+                            case HivePieceType.Ladybug: mesh = WHITE_LADYBUG.clone(); break;
+                            case HivePieceType.Mosquito: mesh = WHITE_MOSQUITO.clone(); break;
+                        }
+                        break;
+                    case HiveColor.Black:
+                        switch (selectedPieceType) {
+                            case HivePieceType.QueenBee: mesh = BLACK_QUEEN_BEE.clone(); break;
+                            case HivePieceType.SoldierAnt: mesh = BLACK_SOLDIER_ANT.clone(); break;
+                            case HivePieceType.Spider: mesh = BLACK_SPIDER.clone(); break;
+                            case HivePieceType.Grasshopper: mesh = BLACK_GRASSHOPPER.clone(); break;
+                            case HivePieceType.Beetle: mesh = BLACK_BEETLE.clone(); break;
+                            case HivePieceType.Ladybug: mesh = BLACK_LADYBUG.clone(); break;
+                            case HivePieceType.Mosquito: mesh = BLACK_MOSQUITO.clone(); break;
+                        }
+                        break;
+                }
+
+                const position2d = grid.hexToEuclidean(hex);
+                mesh.position.set(position2d.x, position2d.y, 0);
+                scene.add(mesh);
+                meshes.set(game.idOfLastPlaced()!, mesh);
+            } else {
+                incorrectMoveModal.show();
             }
 
-            let mesh: THREE.Mesh;
-            switch (color) {
-                case HiveColor.White:
-                    switch (selectedTile) {
-                        case HivePieceType.QueenBee: mesh = WHITE_QUEEN_BEE.clone(); break;
-                        case HivePieceType.SoldierAnt: mesh = WHITE_SOLDIER_ANT.clone(); break;
-                        case HivePieceType.Spider: mesh = WHITE_SPIDER.clone(); break;
-                        case HivePieceType.Grasshopper: mesh = WHITE_GRASSHOPPER.clone(); break;
-                        case HivePieceType.Beetle: mesh = WHITE_BEETLE.clone(); break;
-                        case HivePieceType.Ladybug: mesh = WHITE_LADYBUG.clone(); break;
-                        case HivePieceType.Mosquito: mesh = WHITE_MOSQUITO.clone(); break;
-                    }
-                    break;
-                case HiveColor.Black:
-                    switch (selectedTile) {
-                        case HivePieceType.QueenBee: mesh = BLACK_QUEEN_BEE.clone(); break;
-                        case HivePieceType.SoldierAnt: mesh = BLACK_SOLDIER_ANT.clone(); break;
-                        case HivePieceType.Spider: mesh = BLACK_SPIDER.clone(); break;
-                        case HivePieceType.Grasshopper: mesh = BLACK_GRASSHOPPER.clone(); break;
-                        case HivePieceType.Beetle: mesh = BLACK_BEETLE.clone(); break;
-                        case HivePieceType.Ladybug: mesh = BLACK_LADYBUG.clone(); break;
-                        case HivePieceType.Mosquito: mesh = BLACK_MOSQUITO.clone(); break;
-                    }
-                    break;
-            }
-
-            const position2d = grid.hexToEuclidean(hex);
-            mesh.position.set(position2d.x, position2d.y, 0);
-            scene.add(mesh);
-            meshes.set(game.idOfLastPlaced()!, mesh);
             selected = null;
         } else if (selected instanceof HexVector) {
             // we rely on the facts that 'game' never re-orders the tiles, and that tiles
@@ -309,22 +224,18 @@ function onLeftMouseDown(e: MouseEvent) {
             const tileToMoveId = game.idOfTileAt(selected);
 
             if (tileToMoveId != null) {
-                console.log('found a tile to move')
                 const success = game.moveTile(selected, hex);
 
-                if (!success) {
-                    throw new Error('unhandled: player moves a tile illegally')
+                if (success) {
+                    const position2d = grid.hexToEuclidean(hex);
+                    meshes.get(tileToMoveId)!.position.set(
+                        position2d.x,
+                        position2d.y,
+                        game.tiles()[tileToMoveId].stackHeight * STACK_HEIGHT_DISTANCE
+                    );
+                } else {
+                    incorrectMoveModal.show();
                 }
-
-                console.log(`Stack heights are ${game.tiles().map(t => t.stackHeight)}`)
-                game.debug()
-
-                const position2d = grid.hexToEuclidean(hex);
-                meshes.get(tileToMoveId)!.position.set(
-                    position2d.x,
-                    position2d.y,
-                    game.tiles()[tileToMoveId].stackHeight * STACK_HEIGHT_DISTANCE
-                );
             }
 
             selected = null;
@@ -332,7 +243,7 @@ function onLeftMouseDown(e: MouseEvent) {
             selected = hex;
         }
 
-        updateHudTiles();
+        hud.onUpdate();
     }
 }
 
@@ -341,24 +252,17 @@ document.body.appendChild(renderer.domElement);
 window.onresize = _ => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
-    hudCamera.top = 5 * window.innerHeight / window.innerWidth;
-    hudCamera.bottom = -5 * window.innerHeight / window.innerWidth;
-    hudCamera.updateProjectionMatrix();
-    for (const tile of hudTiles) {
-        tile[0].position.y = hudCamera.top - 1;
-    }
+    hud.onResize();
     renderer.setSize(window.innerWidth, window.innerHeight);
 };
 
 const grid = new HexGrid();
 
 const meshes = new Map<number, THREE.Mesh>();
-// const meshes: THREE.Mesh[] = [];
-hudCamera.position.z = 5;
 
 function animate() {
     renderer.clear();
     renderer.render(scene, camera);
     renderer.clearDepth();
-    renderer.render(hudScene, hudCamera);
+    renderer.render(hud.scene, hud.camera);
 }
