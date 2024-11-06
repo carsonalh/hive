@@ -29,6 +29,8 @@ interface HiveGameObject {
 
     colorToMove(game: unknown): number;
 
+    getTilesRemaining(game: unknown, color: number, pieceType: number): number;
+
     COLOR_BLACK: number;
     COLOR_WHITE: number;
 
@@ -144,6 +146,14 @@ export class HiveGame {
     public colorToMove(): HiveColor {
         const color = hive.colorToMove(this.game);
         return Number(Object.entries(this.colorMap).find(([_, v]) => v === color)![0]);
+    }
+
+    public getTilesRemaining(color: HiveColor, pieceType: HivePieceType) {
+        return hive.getTilesRemaining(
+            this.game,
+            this.colorMap[color],
+            this.pieceTypeMap[pieceType]
+        );
     }
 
     /**
