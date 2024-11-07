@@ -1,11 +1,6 @@
 import * as THREE from 'three'
 import {HiveColor, HiveGame, HivePieceType} from "./hive-game";
-import {
-    CAMERA_POSITION_MAX,
-    CAMERA_POSITION_MIN,
-    SCROLL_FACTOR,
-    STACK_HEIGHT_DISTANCE
-} from "./constants";
+import {STACK_HEIGHT_DISTANCE} from "./constants";
 import {MouseState} from "./mouse-state";
 import {
     BLACK_BEETLE,
@@ -14,7 +9,8 @@ import {
     BLACK_MOSQUITO,
     BLACK_QUEEN_BEE,
     BLACK_SOLDIER_ANT,
-    BLACK_SPIDER, HEXAGON_SHAPE,
+    BLACK_SPIDER,
+    HEXAGON_SHAPE,
     WHITE_BEETLE,
     WHITE_GRASSHOPPER,
     WHITE_LADYBUG,
@@ -26,50 +22,39 @@ import {
 import {HexGrid, HexVector} from "./hex-grid";
 import {ReserveTileSelector} from "./hud";
 import ErrorModal from "./error-modal";
+import CameraController from "./camera-controller";
 
 class Gameplay {
     private readonly _scene: THREE.Scene;
-    private readonly _camera: THREE.PerspectiveCamera;
     private readonly grid: HexGrid = new HexGrid();
     private readonly marker: THREE.Mesh;
     private readonly meshes = new Map<number, THREE.Mesh>();
     private readonly incorrectMoveModal = new ErrorModal({ message: 'The attempted move was illegal' });
+    private readonly cameraController: CameraController;
     private selected: HexVector | null = null;
 
     public constructor(private readonly game: HiveGame, private readonly selector: ReserveTileSelector) {
         this._scene = new THREE.Scene();
         this._scene.background = new THREE.Color(0x175c29);
 
-        this._camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000)
-        this._camera.position.z = 10;
-        this._camera.rotateOnWorldAxis(new THREE.Vector3(1, 0, 0), Math.PI / 4)
+        this.cameraController = new CameraController();
 
         this.marker = new THREE.Mesh(new THREE.ShapeGeometry(HEXAGON_SHAPE.clone()), new THREE.MeshBasicMaterial({color: 0xff0000}));
         this.marker.rotateZ(1 / 12 * 2 * Math.PI);
     }
 
     public onResize(): void {
-        this._camera.aspect = window.innerWidth / window.innerHeight;
-        this._camera.updateProjectionMatrix();
+        this.cameraController.onResize();
     }
 
     public onWheel(e: WheelEvent): void {
-        // TODO make this on the axis that the camera is looking at
-        let newPosition = this._camera.position.z + SCROLL_FACTOR * e.deltaY;
-
-        if (newPosition > CAMERA_POSITION_MAX) {
-            newPosition = CAMERA_POSITION_MAX;
-        } else if (newPosition < CAMERA_POSITION_MIN) {
-            newPosition = CAMERA_POSITION_MIN;
-        }
-
-        this._camera.position.z = newPosition;
+        this.cameraController.onWheel(e);
     }
 
     /**
      * Returns true if the event was handled.
      */
-    public onClick(e: MouseEvent, state: MouseState): boolean {
+    public onClick(e: MouseEvent, _state: MouseState): boolean {
         const raycaster = new THREE.Raycaster();
         const clickedNDC = new THREE.Vector2(
             2 * e.clientX / window.innerWidth - 1,
@@ -79,7 +64,7 @@ class Gameplay {
         const gameSurface = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
         const clickedWorld = new THREE.Vector3();
         raycaster.ray.intersectPlane(gameSurface, clickedWorld);
-        raycaster.setFromCamera(clickedNDC, this._camera);
+        raycaster.setFromCamera(clickedNDC, this.cameraController.camera);
         raycaster.ray.intersectPlane(gameSurface, clickedWorld)
         const hex = this.grid.euclideanToHex(new THREE.Vector2(clickedWorld.x, clickedWorld.y));
         const hexPosition = this.grid.hexToEuclidean(hex)
@@ -89,6 +74,7 @@ class Gameplay {
         if ((selectedPieceType = this.selector.selectedPieceTypeForPlacement()) != null) { // we have this.selected a piece and are now clicking to place it
             const color = this.game.colorToMove();
             const success = this.game.placeTile(selectedPieceType, hex);
+            this.updateMidpoint();
 
             if (success) {
                 let mesh: THREE.Mesh;
@@ -161,6 +147,7 @@ class Gameplay {
 
             if (tileToMoveId != null) {
                 const success = this.game.moveTile(this.selected, hex);
+                this.updateMidpoint();
 
                 if (success) {
                     const position2d = this.grid.hexToEuclidean(hex);
@@ -182,6 +169,25 @@ class Gameplay {
         return true;
     }
 
+    private updateMidpoint(): void {
+        const midpoint = new THREE.Vector2();
+
+        let count = 0;
+        for (const tile of this.game.tiles()) {
+            const point = this.grid.hexToEuclidean(tile.position);
+            midpoint.add(point);
+            count++;
+        }
+
+        midpoint.multiplyScalar(1 / count);
+
+        this.cameraController.onMidpointChange(new THREE.Vector3(midpoint.x, midpoint.y, 0));
+    }
+
+    public onUpdate(deltaTimeMs: number, state: MouseState): void {
+        this.cameraController.onUpdate(deltaTimeMs, state);
+    }
+
     /**
      * To be called when clicked away from the 'gameplay' scene.
      */
@@ -191,33 +197,7 @@ class Gameplay {
     }
 
     public onMouseMove(e: MouseEvent, state: MouseState): void {
-        if (!state.rightButtonDown) {
-            return;
-        }
-
-        const raycaster = new THREE.Raycaster();
-
-        const mouseNDC = new THREE.Vector2(
-            2 * e.clientX / window.innerWidth - 1,
-            -2 * e.clientY / window.innerHeight + 1
-        );
-        raycaster.setFromCamera(mouseNDC, this._camera);
-        const target = new THREE.Vector3();
-        const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-        raycaster.ray.intersectPlane(plane, target);
-
-        const to = target.clone();
-
-        const previousMouseNDC = new THREE.Vector2(
-            2 * (e.clientX + e.movementX) / window.innerWidth - 1,
-            -2 * (e.clientY + e.movementY) / window.innerHeight + 1
-        );
-        raycaster.setFromCamera(previousMouseNDC, this.camera);
-        raycaster.ray.intersectPlane(plane, target);
-        const from = target.clone();
-
-        const delta = to.sub(from);
-        this._camera.position.add(delta);
+        this.cameraController.onMouseMove(e, state);
     }
 
     public get scene(): THREE.Scene {
@@ -225,7 +205,7 @@ class Gameplay {
     }
 
     public get camera(): THREE.Camera {
-        return this._camera;
+        return this.cameraController.camera;
     }
 }
 

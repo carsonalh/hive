@@ -78,7 +78,9 @@ window.onresize = _ => {
     renderer.setSize(window.innerWidth, window.innerHeight);
 };
 
-function animate() {
+function animate(deltaTimeMs: number) {
+    gameplay.onUpdate(deltaTimeMs, mouseStateTracker);
+
     renderer.clear();
     renderer.render(gameplay.scene, gameplay.camera);
     renderer.clearDepth();

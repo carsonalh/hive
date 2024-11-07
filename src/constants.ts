@@ -1,11 +1,13 @@
 export const TILE_GAP = 0.1;
 export const RADIUS = .8;
 export const STACK_HEIGHT_DISTANCE = .5;
-export const SCROLL_FACTOR = 0.01;
-export const CAMERA_POSITION_MAX = 10;
-export const CAMERA_POSITION_MIN = 2;
+export const SCROLL_FACTOR = 0.002;
+export const CAMERA_POSITION_MAX = 50;
+export const CAMERA_POSITION_MIN = 5;
+export const CAMERA_LERP = 1e-6;
 export const LEFT_BUTTON = 0;
 export const MIDDLE_BUTTON = 1;
 export const RIGHT_BUTTON = 2;
 export const BACK_BUTTON = 3;
 export const FORWARD_BUTTON = 4;
+export const EPSILON = 1e-8;

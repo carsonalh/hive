@@ -240,7 +240,7 @@ class HUD implements ReserveTileSelector {
             // console.log(location2d)
             const location3d = new THREE.Vector3(location2d.x, location2d.y, 0);
             location3d.applyMatrix4(this._camera.projectionMatrix);
-            console.log(location3d)
+            // console.log(location3d)
 
             this.pieceCountElements[i].style.left = `${window.innerWidth * (.5 * location3d.x + .5)}px`;
             this.pieceCountElements[i].style.top = `${window.innerHeight * (-.5 * location3d.y + .5)}px`;
