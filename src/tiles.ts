@@ -2,15 +2,16 @@ import * as THREE from 'three';
 import { RADIUS, TILE_GAP } from './constants';
 
 function createHexagonShape() {
+    const r = RADIUS * 2 / Math.sqrt(3);
     const shape = new THREE.Shape();
-    shape.moveTo(RADIUS, 0);
+    shape.moveTo(r, 0);
 
     for (let i = 1; i < 6; i++) {
         const angle = 2 * Math.PI * (i / 6);
-        shape.lineTo(RADIUS * Math.cos(angle), RADIUS * Math.sin(angle));
+        shape.lineTo(r * Math.cos(angle), r * Math.sin(angle));
     }
 
-    shape.lineTo(RADIUS, 0);
+    shape.lineTo(r, 0);
     shape.closePath();
 
     return shape;

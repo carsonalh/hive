@@ -1,4 +1,3 @@
-import {MouseState} from "./types";
 import {HiveColor, HiveGame, HivePieceType} from "./hive-game";
 import * as THREE from "three";
 import {
@@ -17,78 +16,13 @@ import {
     WHITE_SOLDIER_ANT,
     WHITE_SPIDER
 } from "./tiles";
+import {MouseState} from "./mouse-state";
 
-// const hudElements = [
-//     document.createElement('p'),
-//     document.createElement('p'),
-//     document.createElement('p'),
-//     document.createElement('p'),
-//     document.createElement('p'),
-//     document.createElement('p'),
-//     document.createElement('p'),
-// ];
+export interface ReserveTileSelector {
+    selectedPieceTypeForPlacement(): HivePieceType | null;
+}
 
-// function updateHudTiles() {
-//     for (const [tile, _] of hudTiles) {
-//         hudScene.remove(tile);
-//     }
-//
-//     switch (game.colorToMove()) {
-//         case HiveColor.Black:
-//             hudTiles[0][0] = BLACK_QUEEN_BEE.clone();
-//             hudTiles[1][0] = BLACK_SOLDIER_ANT.clone();
-//             hudTiles[2][0] = BLACK_SPIDER.clone();
-//             hudTiles[3][0] = BLACK_GRASSHOPPER.clone();
-//             hudTiles[4][0] = BLACK_BEETLE.clone();
-//             hudTiles[5][0] = BLACK_LADYBUG.clone();
-//             hudTiles[6][0] = BLACK_MOSQUITO.clone();
-//             break;
-//         case HiveColor.White:
-//             hudTiles[0][0] = WHITE_QUEEN_BEE.clone();
-//             hudTiles[1][0] = WHITE_SOLDIER_ANT.clone();
-//             hudTiles[2][0] = WHITE_SPIDER.clone();
-//             hudTiles[3][0] = WHITE_GRASSHOPPER.clone();
-//             hudTiles[4][0] = WHITE_BEETLE.clone();
-//             hudTiles[5][0] = WHITE_LADYBUG.clone();
-//             hudTiles[6][0] = WHITE_MOSQUITO.clone();
-//             break;
-//     }
-//
-//     if (!appended) {
-//         const body = document.querySelector('body')!
-//         body.style.position = 'relative';
-//         renderer.domElement.style.position = 'absolute';
-//         renderer.domElement.style.zIndex = '-1';
-//         for (const element of hudElements) {
-//             body.appendChild(element);
-//         }
-//     }
-//
-//     for (let i = 0; i < hudTiles.length; i++) {
-//         hudElements[i].style.position = 'absolute';
-//
-//         const x = -5 + 10 / 7 * i + (10 / 7) / 2;
-//         const y = hudCamera.top - 1;
-//
-//         const positionNDC = new THREE.Vector3(x, y, 0);
-//         positionNDC.applyMatrix4(hudCamera.projectionMatrix);
-//         const windowX = (positionNDC.x / 2 + 1 / 2) * window.innerWidth;
-//         const windowY = (-positionNDC.y / 2 + 1 / 2) * window.innerHeight;
-//
-//         const offsetX = -5;
-//         const offsetY = -10;
-//         hudElements[i].style.left = `${windowX + offsetX}px`;
-//         hudElements[i].style.top = `${windowY + offsetY}px`;
-//
-//         hudElements[i].textContent = String(game.getTilesRemaining(game.colorToMove(), hudTiles[i][1]));
-//
-//         const tile = hudTiles[i][0];
-//         tile.position.set(x, y, 0)
-//         hudScene.add(tile);
-//     }
-// }
-
-class HUD {
+class HUD implements ReserveTileSelector {
     private readonly _scene: THREE.Scene;
     private readonly _camera: THREE.OrthographicCamera;
     private readonly game: HiveGame;
@@ -121,7 +55,12 @@ class HUD {
         this.square = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({color: new THREE.Color(0xff0000)}));
 
         this.pieceCountElements = new Array(7).fill(0).map(_ => document.createElement('p'));
-        this.pieceCountElements.forEach(e => document.body.appendChild(e));
+        this.pieceCountElements.forEach(e => {
+            // So the styling offsets are relative to the centre of the element
+            e.style.transform = 'translate(-50%, -50%)';
+            e.style.display = 'block';
+            document.body.appendChild(e)
+        });
 
         this.whiteMeshes = [
             WHITE_QUEEN_BEE.clone(),
@@ -165,7 +104,6 @@ class HUD {
             2 * e.clientX / window.innerWidth - 1,
             -2 * e.clientY / window.innerHeight + 1,
         );
-        // console.log(clickedWorld)
         const gameSurface = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
         raycaster.setFromCamera(clicked, this._camera);
         const clickedWorld = new THREE.Vector3();
@@ -179,6 +117,11 @@ class HUD {
         } else {
             return false;
         }
+    }
+
+    public onClickAway(): void {
+        this._scene.remove(this.square);
+        this.selected = null;
     }
 
     public onResize() {
@@ -242,8 +185,8 @@ class HUD {
             const windowX = (positionNDC.x / 2 + 1 / 2) * window.innerWidth;
             const windowY = (-positionNDC.y / 2 + 1 / 2) * window.innerHeight;
 
-            const offsetX = -5;
-            const offsetY = -10;
+            const offsetX = 0//-5;
+            const offsetY = 0//-10;
             this.pieceCountElements[i].style.left = `${windowX + offsetX}px`;
             this.pieceCountElements[i].style.top = `${windowY + offsetY}px`;
 
