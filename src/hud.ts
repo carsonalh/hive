@@ -7,7 +7,7 @@ import {
     BLACK_MOSQUITO,
     BLACK_QUEEN_BEE,
     BLACK_SOLDIER_ANT,
-    BLACK_SPIDER,
+    BLACK_SPIDER, HEXAGON_SHAPE,
     WHITE_BEETLE,
     WHITE_GRASSHOPPER,
     WHITE_LADYBUG,
@@ -17,10 +17,17 @@ import {
     WHITE_SPIDER
 } from "./tiles";
 import {MouseState} from "./mouse-state";
+import {HexGrid, HexVector} from "./hex-grid";
+import {RADIUS} from "./constants";
 
 export interface ReserveTileSelector {
     selectedPieceTypeForPlacement(): HivePieceType | null;
 }
+
+const TILE_WIDTH_PX = 100;
+const TILE_GAP_PX = 5;
+const TILE_0_LEFT_PX = 55;
+const TILE_0_TOP_PX = 55 * 2 / Math.sqrt(3);
 
 class HUD implements ReserveTileSelector {
     private readonly _scene: THREE.Scene;
@@ -30,11 +37,14 @@ class HUD implements ReserveTileSelector {
     private readonly blackMeshes: THREE.Mesh[];
     private readonly pieceTypes: HivePieceType[];
     private readonly pieceCountElements: HTMLParagraphElement[];
-    private readonly square: THREE.Mesh;
+    private readonly marker: THREE.Mesh;
+    private readonly locations: HexVector[];
+    private grid: HexGrid;
     private selected: HivePieceType | null;
 
     private lastColorToMove: HiveColor;
     private lastMove: number;
+    private tile0Location = new THREE.Vector3();
 
     public constructor(game: HiveGame) {
         this.game = game;
@@ -43,21 +53,33 @@ class HUD implements ReserveTileSelector {
         this._camera.position.z = 5;
         this.selected = null;
 
+        this.locations = [
+            new HexVector(0, 0),
+            new HexVector(0, 1),
+            new HexVector(-1, 2),
+            new HexVector(-1, 3),
+            new HexVector(-2, 4),
+            new HexVector(-2, 5),
+            new HexVector(-3, 6),
+        ];
+
         this.lastColorToMove = game.colorToMove();
         this.lastMove = game.moveNumber();
 
-        const shape = new THREE.Shape();
-        shape.moveTo(0, -1);
-        shape.lineTo(0, 1);
-        shape.lineTo(10 / 7, 1);
-        shape.lineTo(10 / 7, -1);
-        shape.closePath()
-        this.square = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({color: new THREE.Color(0xff0000)}));
+        this.marker = new THREE.Mesh(
+            new THREE.ShapeGeometry(HEXAGON_SHAPE.clone()),
+            new THREE.MeshBasicMaterial({color: 0xff0000})
+        );
+        this.marker.rotateZ(1 / 12 * 2 * Math.PI);
 
         this.pieceCountElements = new Array(7).fill(0).map(_ => document.createElement('p'));
-        this.pieceCountElements.forEach(e => {
-            // So the styling offsets are relative to the centre of the element
-            e.style.transform = 'translate(-50%, -50%)';
+        this.pieceCountElements.forEach((e, i) => {
+            if (i % 2 == 0) {
+                e.style.transform = 'translate(calc(-100% - 30px), -50%)';
+            } else {
+                e.style.transform = 'translate(30px, -50%)';
+            }
+            e.style.position = 'absolute';
             e.style.display = 'block';
             document.body.appendChild(e)
         });
@@ -92,27 +114,32 @@ class HUD implements ReserveTileSelector {
             HivePieceType.Mosquito,
         ];
 
-        this.placeMeshesAndPieceCounts(this.coloredMeshes());
+        this.grid = new HexGrid((TILE_WIDTH_PX + TILE_GAP_PX) * 10 / window.innerWidth);
+        this.onResize();
     }
 
     /**
      * Return true if the click hit something in the hud.
      */
     public onClick(e: MouseEvent, _: MouseState): boolean {
+        const hudPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
         const raycaster = new THREE.Raycaster();
         const clicked = new THREE.Vector2(
             2 * e.clientX / window.innerWidth - 1,
             -2 * e.clientY / window.innerHeight + 1,
         );
-        const gameSurface = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
         raycaster.setFromCamera(clicked, this._camera);
         const clickedWorld = new THREE.Vector3();
-        raycaster.ray.intersectPlane(gameSurface, clickedWorld);
-        if (clickedWorld.y > this._camera.top - 2) {
-            const tileIndex = Math.floor((clickedWorld.x + 5) * 7 / 10)
-            this.selected = this.pieceTypes[tileIndex] ?? null;
-            this.square.position.set(-5 + 10 / 7 * tileIndex, this._camera.top - 1, -1)
-            this._scene.add(this.square);
+        raycaster.ray.intersectPlane(hudPlane, clickedWorld);
+        clickedWorld.sub(this.tile0Location);
+        const hex = this.grid.euclideanToHex(new THREE.Vector2(clickedWorld.x, clickedWorld.y));
+        const found = this.locations.findIndex(v => v.equals(hex));
+        if (found >= 0) {
+            this.selected = this.pieceTypes[found];
+            const placeMarker = this.grid.hexToEuclidean(hex);
+            placeMarker.add(this.tile0Location);
+            this.marker.position.set(placeMarker.x, placeMarker.y, 0);
+            this._scene.add(this.marker);
             return true;
         } else {
             return false;
@@ -120,16 +147,24 @@ class HUD implements ReserveTileSelector {
     }
 
     public onClickAway(): void {
-        this._scene.remove(this.square);
+        this._scene.remove(this.marker);
         this.selected = null;
     }
 
     public onResize() {
+        this.grid = new HexGrid((TILE_WIDTH_PX + TILE_GAP_PX) * 10 / window.innerWidth);
         this._camera.top = 5 * window.innerHeight / window.innerWidth;
         this._camera.bottom = -5 * window.innerHeight / window.innerWidth;
         this._camera.updateProjectionMatrix();
-        for (const tile of this.coloredMeshes()) {
-            tile.position.y = this._camera.top - 1;
+        this.placeMeshesAndPieceCounts(this.coloredMeshes());
+        this.marker.scale.set(1, 1, 1);
+        this.marker.scale.multiplyScalar(
+            ((TILE_WIDTH_PX + 2 * TILE_GAP_PX) * 10 / window.innerWidth) / (2 * RADIUS)
+        );
+        if (this.selected != null) {
+            const placeMarker = this.grid.hexToEuclidean(this.locations[this.pieceTypes.indexOf(this.selected)]);
+            placeMarker.add(this.tile0Location);
+            this.marker.position.set(placeMarker.x, placeMarker.y, 0);
         }
     }
 
@@ -174,29 +209,44 @@ class HUD implements ReserveTileSelector {
     }
 
     private placeMeshesAndPieceCounts(meshes: THREE.Mesh[]): void {
+        this.tile0Location = new THREE.Vector3(
+            2 * (TILE_0_LEFT_PX / window.innerWidth) - 1,
+            -2 * (TILE_0_TOP_PX / window.innerHeight) + 1,
+            0
+        );
+        this.tile0Location.applyMatrix4(this._camera.projectionMatrixInverse);
+        this.tile0Location.setZ(0);
+
         for (let i = 0; i < meshes.length; i++) {
-            this.pieceCountElements[i].style.position = 'absolute';
+            const position = this.grid.hexToEuclidean(this.locations[i]);
+            meshes[i].position.set(position.x, position.y, 0);
+            meshes[i].position.add(this.tile0Location);
+            const scale = TILE_WIDTH_PX * 5 / (window.innerWidth * RADIUS);
+            meshes[i].scale.set(scale, scale, scale);
+            this._scene.add(meshes[i]);
+        }
 
-            const x = -5 + 10 / 7 * i + (10 / 7) / 2;
-            const y = this._camera.top - 1;
+        for (let i = 0; i < this.pieceCountElements.length; i++) {
+            let hex: HexVector;
+            if (i % 2 == 0) {
+                hex = this.locations[i].add(new HexVector(1, 0));
+            } else {
+                hex = this.locations[i].add(new HexVector(-1, 0));
+            }
 
-            const positionNDC = new THREE.Vector3(x, y, 0);
-            positionNDC.applyMatrix4(this._camera.projectionMatrix);
-            const windowX = (positionNDC.x / 2 + 1 / 2) * window.innerWidth;
-            const windowY = (-positionNDC.y / 2 + 1 / 2) * window.innerHeight;
+            // console.log(`placing in hex ${hex}`)
 
-            const offsetX = 0//-5;
-            const offsetY = 0//-10;
-            this.pieceCountElements[i].style.left = `${windowX + offsetX}px`;
-            this.pieceCountElements[i].style.top = `${windowY + offsetY}px`;
+            const location2d = this.grid.hexToEuclidean(hex).add(this.tile0Location);
+            // console.log(location2d)
+            const location3d = new THREE.Vector3(location2d.x, location2d.y, 0);
+            location3d.applyMatrix4(this._camera.projectionMatrix);
+            console.log(location3d)
 
+            this.pieceCountElements[i].style.left = `${window.innerWidth * (.5 * location3d.x + .5)}px`;
+            this.pieceCountElements[i].style.top = `${window.innerHeight * (-.5 * location3d.y + .5)}px`;
             this.pieceCountElements[i].textContent = String(
                 this.game.getTilesRemaining(this.game.colorToMove(), this.pieceTypes[i])
             );
-
-            const tile = meshes[i];
-            tile.position.set(x, y, 0)
-            this._scene.add(tile);
         }
     }
 }
