@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import {HiveColor, HiveGame, HivePieceType} from "./hive-game";
 import {STACK_HEIGHT_DISTANCE} from "./constants";
 import {MouseState} from "./mouse-state";
-import {createTile, HEXAGON_SHAPE,} from "./tiles";
+import {createTile,} from "./tiles";
 import {HexGrid, HexVector} from "./hex-grid";
 import {ReserveTileSelector} from "./hud";
 import ErrorModal from "./error-modal";
@@ -11,7 +11,6 @@ import CameraController from "./camera-controller";
 class Gameplay {
     private readonly _scene: THREE.Scene;
     private readonly grid: HexGrid = new HexGrid();
-    private readonly marker: THREE.Mesh;
     private readonly blackMeshes = new Map<HivePieceType, THREE.Mesh>();
     private readonly whiteMeshes = new Map<HivePieceType, THREE.Mesh>();
     private readonly meshes = new Map<number, THREE.Mesh>();
@@ -67,9 +66,6 @@ class Gameplay {
         this._scene.add(backgroundPlane);
 
         this.cameraController = new CameraController();
-
-        this.marker = new THREE.Mesh(new THREE.ShapeGeometry(HEXAGON_SHAPE.clone()), new THREE.MeshBasicMaterial({color: 0xff0000}));
-        this.marker.rotateZ(1 / 12 * 2 * Math.PI);
     }
 
     public onResize(): void {
@@ -96,9 +92,6 @@ class Gameplay {
         raycaster.setFromCamera(clickedNDC, this.cameraController.camera);
         raycaster.ray.intersectPlane(gameSurface, clickedWorld)
         const hex = this.grid.euclideanToHex(new THREE.Vector2(clickedWorld.x, clickedWorld.y));
-        const hexPosition = this.grid.hexToEuclidean(hex)
-        this.marker.position.set(hexPosition.x, hexPosition.y, 0);
-        this._scene.add(this.marker);
         let selectedPieceType: HivePieceType | null;
         if ((selectedPieceType = this.selector.selectedPieceTypeForPlacement()) != null) { // we have this.selected a piece and are now clicking to place it
             const color = this.game.colorToMove();
@@ -195,7 +188,6 @@ class Gameplay {
      */
     public onClickAway(): void {
         this.selected = null;
-        this._scene.remove(this.marker);
     }
 
     public onMouseMove(e: MouseEvent, state: MouseState): void {
