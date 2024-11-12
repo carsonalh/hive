@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import {
+    CAMERA_ANGLE_LERP,
     CAMERA_LERP,
     CAMERA_POSITION_MAX,
     CAMERA_POSITION_MIN,
@@ -56,8 +57,8 @@ class CameraController {
         if (this.latitudeRadians > Math.PI / 2) {
             this.latitudeRadians = Math.PI / 2 - EPSILON;
         }
-        if (this.latitudeRadians < 0) {
-            this.latitudeRadians = 0;
+        if (this.latitudeRadians < .01) {
+            this.latitudeRadians = .01;
         }
 
         this.longitudeRadians += -ROTATE_FACTOR * e.movementX;
@@ -70,12 +71,11 @@ class CameraController {
 
     public onUpdate(deltaTimeMs: number, state: MouseState): void {
         this.ground.lerp(this.midpoint, deltaTimeMs * CAMERA_LERP);
-        const ANGLE_LERP = 1e-6;
         const GOAL_LATITUDE = Math.PI / 2 - EPSILON;
         const GOAL_LONGITUDE = 0;
         if (!state.rightButtonDown) {
-            this.latitudeRadians += deltaTimeMs * ANGLE_LERP * (GOAL_LATITUDE - this.latitudeRadians);
-            this.longitudeRadians += deltaTimeMs * ANGLE_LERP * (GOAL_LONGITUDE - this.longitudeRadians);
+            this.latitudeRadians += deltaTimeMs * CAMERA_ANGLE_LERP * (GOAL_LATITUDE - this.latitudeRadians);
+            this.longitudeRadians += deltaTimeMs * CAMERA_ANGLE_LERP * (GOAL_LONGITUDE - this.longitudeRadians);
         }
         this.updateCameraFromGroundAndAngles();
     }

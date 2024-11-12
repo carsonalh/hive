@@ -80,7 +80,10 @@ window.onresize = _ => {
     renderer.setSize(window.innerWidth, window.innerHeight);
 };
 
-function animate(deltaTimeMs: number) {
+const clock = new THREE.Clock();
+
+function animate() {
+    const deltaTimeMs = clock.getDelta();
     gameplay.onUpdate(deltaTimeMs, mouseStateTracker);
 
     renderer.clear();
