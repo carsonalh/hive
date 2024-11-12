@@ -2,24 +2,7 @@ import * as THREE from 'three'
 import {HiveColor, HiveGame, HivePieceType} from "./hive-game";
 import {STACK_HEIGHT_DISTANCE} from "./constants";
 import {MouseState} from "./mouse-state";
-import {
-    BLACK_BEETLE,
-    BLACK_GRASSHOPPER,
-    BLACK_LADYBUG,
-    BLACK_MOSQUITO,
-    BLACK_QUEEN_BEE,
-    BLACK_SOLDIER_ANT,
-    BLACK_SPIDER,
-    HEXAGON_SHAPE,
-    WHITE_BEETLE,
-    WHITE_GRASSHOPPER,
-    WHITE_LADYBUG,
-    WHITE_MOSQUITO,
-    WHITE_QUEEN_BEE,
-    WHITE_SOLDIER_ANT,
-    WHITE_SPIDER,
-    createTile,
-} from "./tiles";
+import {createTile, HEXAGON_SHAPE,} from "./tiles";
 import {HexGrid, HexVector} from "./hex-grid";
 import {ReserveTileSelector} from "./hud";
 import ErrorModal from "./error-modal";
@@ -29,15 +12,36 @@ class Gameplay {
     private readonly _scene: THREE.Scene;
     private readonly grid: HexGrid = new HexGrid();
     private readonly marker: THREE.Mesh;
+    private readonly blackMeshes = new Map<HivePieceType, THREE.Mesh>();
+    private readonly whiteMeshes = new Map<HivePieceType, THREE.Mesh>();
     private readonly meshes = new Map<number, THREE.Mesh>();
-    private readonly incorrectMoveModal = new ErrorModal({ message: 'The attempted move was illegal' });
+    private readonly incorrectMoveModal = new ErrorModal({message: 'The attempted move was illegal'});
     private readonly cameraController: CameraController;
     private selected: HexVector | null = null;
 
     public static async create(game: HiveGame, selector: ReserveTileSelector): Promise<Gameplay> {
         const gameplay = new Gameplay(game, selector);
-        const tile = await createTile(HiveColor.White, HivePieceType.Grasshopper);
-        gameplay._scene.add(tile);
+        const pieceTypes = [
+            HivePieceType.QueenBee, HivePieceType.SoldierAnt, HivePieceType.Spider,
+            HivePieceType.Grasshopper, HivePieceType.Beetle, HivePieceType.Ladybug,
+            HivePieceType.Mosquito];
+
+        const createBlackMeshes = [];
+        const createWhiteMeshes = [];
+
+        for (const pieceType of pieceTypes) {
+            createBlackMeshes.push(createTile(HiveColor.Black, pieceType));
+            createWhiteMeshes.push(createTile(HiveColor.White, pieceType));
+        }
+
+        const blackMeshes = await Promise.all(createBlackMeshes);
+        const whiteMeshes = await Promise.all(createWhiteMeshes);
+
+        for (let i = 0; i < pieceTypes.length; i++) {
+            gameplay.blackMeshes.set(pieceTypes[i], blackMeshes[i]);
+            gameplay.whiteMeshes.set(pieceTypes[i], whiteMeshes[i]);
+        }
+
         return gameplay
     }
 
@@ -47,7 +51,6 @@ class Gameplay {
         const light = new THREE.DirectionalLight(0xffffff, 1);
         light.position.copy(new THREE.Vector3(-1, -1, 1).normalize());
         const ambient = new THREE.AmbientLight(0xffffff, 1);
-        this._scene.add(new THREE.AxesHelper(3))
         this._scene.add(light);
         this._scene.add(ambient);
 
@@ -93,56 +96,22 @@ class Gameplay {
             if (success) {
                 let mesh: THREE.Mesh;
                 switch (color) {
-                    case HiveColor.White:
-                        switch (selectedPieceType) {
-                            case HivePieceType.QueenBee:
-                                mesh = WHITE_QUEEN_BEE.clone();
-                                break;
-                            case HivePieceType.SoldierAnt:
-                                mesh = WHITE_SOLDIER_ANT.clone();
-                                break;
-                            case HivePieceType.Spider:
-                                mesh = WHITE_SPIDER.clone();
-                                break;
-                            case HivePieceType.Grasshopper:
-                                mesh = WHITE_GRASSHOPPER.clone();
-                                break;
-                            case HivePieceType.Beetle:
-                                mesh = WHITE_BEETLE.clone();
-                                break;
-                            case HivePieceType.Ladybug:
-                                mesh = WHITE_LADYBUG.clone();
-                                break;
-                            case HivePieceType.Mosquito:
-                                mesh = WHITE_MOSQUITO.clone();
-                                break;
+                    case HiveColor.White: {
+                        const got = this.whiteMeshes.get(selectedPieceType)?.clone();
+                        if (got == null) {
+                            throw new Error(`mesh of piece type ${selectedPieceType} was not created on game setup`);
                         }
+                        mesh = got;
                         break;
-                    case HiveColor.Black:
-                        switch (selectedPieceType) {
-                            case HivePieceType.QueenBee:
-                                mesh = BLACK_QUEEN_BEE.clone();
-                                break;
-                            case HivePieceType.SoldierAnt:
-                                mesh = BLACK_SOLDIER_ANT.clone();
-                                break;
-                            case HivePieceType.Spider:
-                                mesh = BLACK_SPIDER.clone();
-                                break;
-                            case HivePieceType.Grasshopper:
-                                mesh = BLACK_GRASSHOPPER.clone();
-                                break;
-                            case HivePieceType.Beetle:
-                                mesh = BLACK_BEETLE.clone();
-                                break;
-                            case HivePieceType.Ladybug:
-                                mesh = BLACK_LADYBUG.clone();
-                                break;
-                            case HivePieceType.Mosquito:
-                                mesh = BLACK_MOSQUITO.clone();
-                                break;
+                    }
+                    case HiveColor.Black: {
+                        const got = this.blackMeshes.get(selectedPieceType)?.clone();
+                        if (got == null) {
+                            throw new Error(`mesh of piece type ${selectedPieceType} was not created on game setup`);
                         }
+                        mesh = got;
                         break;
+                    }
                 }
 
                 const position2d = this.grid.hexToEuclidean(hex);

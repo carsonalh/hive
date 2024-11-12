@@ -144,9 +144,6 @@ async function createPbrTile(foregroundColor: number, backgroundColor: number, s
         };
     });
 
-    // const texture = new THREE.TextureLoader().load('textures/queenbee.png');
-    // const normalMap = new THREE.TextureLoader().load('textures/queenbee_normal.png');
-
     let m: THREE.Mesh | null = null;
     loaded.traverse(child => {
         if ((child as any).isMesh) {
