@@ -17,7 +17,8 @@ import {
     WHITE_MOSQUITO,
     WHITE_QUEEN_BEE,
     WHITE_SOLDIER_ANT,
-    WHITE_SPIDER
+    WHITE_SPIDER,
+    createTile,
 } from "./tiles";
 import {HexGrid, HexVector} from "./hex-grid";
 import {ReserveTileSelector} from "./hud";
@@ -33,9 +34,22 @@ class Gameplay {
     private readonly cameraController: CameraController;
     private selected: HexVector | null = null;
 
-    public constructor(private readonly game: HiveGame, private readonly selector: ReserveTileSelector) {
+    public static async create(game: HiveGame, selector: ReserveTileSelector): Promise<Gameplay> {
+        const gameplay = new Gameplay(game, selector);
+        const tile = await createTile(HiveColor.White, HivePieceType.Grasshopper);
+        gameplay._scene.add(tile);
+        return gameplay
+    }
+
+    private constructor(private readonly game: HiveGame, private readonly selector: ReserveTileSelector) {
         this._scene = new THREE.Scene();
         this._scene.background = new THREE.Color(0x175c29);
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.copy(new THREE.Vector3(-1, -1, 1).normalize());
+        const ambient = new THREE.AmbientLight(0xffffff, 1);
+        this._scene.add(new THREE.AxesHelper(3))
+        this._scene.add(light);
+        this._scene.add(ambient);
 
         this.cameraController = new CameraController();
 

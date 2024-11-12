@@ -23,7 +23,7 @@ window.onload = async () => {
     game.debug();
 
     hud = new HUD(game);
-    gameplay = new Gameplay(game, hud);
+    gameplay = await Gameplay.create(game, hud);
     renderer.setAnimationLoop(animate);
 };
 
