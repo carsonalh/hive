@@ -167,6 +167,9 @@ async function createPbrTile(foregroundColor: number, backgroundColor: number, s
     mesh.rotateX(Math.PI / 2);
     mesh.scale.multiplyScalar(RADIUS * 2 / Math.sqrt(3));
 
+    mesh.receiveShadow = true;
+    mesh.castShadow = true;
+
     return mesh;
 }
 

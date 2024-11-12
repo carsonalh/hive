@@ -50,9 +50,21 @@ class Gameplay {
         this._scene.background = new THREE.Color(0x175c29);
         const light = new THREE.DirectionalLight(0xffffff, 1);
         light.position.copy(new THREE.Vector3(-1, -1, 1).normalize());
+        light.castShadow = true;
+        light.shadow.camera.lookAt(new THREE.Vector3(0, 0, 0));
+        light.shadow.camera.near = -100.;
         const ambient = new THREE.AmbientLight(0xffffff, 1);
         this._scene.add(light);
         this._scene.add(ambient);
+
+        const backgroundPlane = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.MeshPhysicalMaterial({
+            color: 0x5cc955,
+            specularIntensity: 0.8,
+            roughness: 0.5,
+        }));
+        backgroundPlane.position.set(0, 0, 0);
+        backgroundPlane.receiveShadow = true;
+        this._scene.add(backgroundPlane);
 
         this.cameraController = new CameraController();
 
@@ -134,7 +146,8 @@ class Gameplay {
 
                 if (success) {
                     const position2d = this.grid.hexToEuclidean(hex);
-                    this.meshes.get(tileToMoveId)!.position.set(
+                    const mesh = this.meshes.get(tileToMoveId)!;
+                    mesh.position.set(
                         position2d.x,
                         position2d.y,
                         this.game.tiles()[tileToMoveId].stackHeight * STACK_HEIGHT_DISTANCE
@@ -149,7 +162,13 @@ class Gameplay {
             this.selected = hex;
         }
 
+        this.printShadowValues();
         return true;
+    }
+
+    private printShadowValues() {
+        console.log(`there should be ${this.meshes.size} values`)
+        this.meshes.forEach(m => console.log(m.castShadow, m.receiveShadow))
     }
 
     private updateMidpoint(): void {
