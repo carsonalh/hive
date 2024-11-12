@@ -3,6 +3,7 @@ import {RADIUS} from './constants';
 import {OBJLoader} from "three/examples/jsm/loaders/OBJLoader";
 import {hexTileObjSource} from "./hex-tile.obj";
 import {HiveColor, HivePieceType} from "./hive-game";
+import {hexTileSimplifiedObj} from "./hex-tile-simplified.obj";
 
 function createHexagonShape() {
     const r = RADIUS * 2 / Math.sqrt(3);
@@ -24,16 +25,22 @@ export const HEXAGON_SHAPE = createHexagonShape();
 
 function createTileBasic(backgroundColor: THREE.ColorRepresentation, foregroundColor: THREE.ColorRepresentation,
     imagePath: string): THREE.Mesh {
-    const shape = HEXAGON_SHAPE.clone();
-
-    const geometry = new THREE.ExtrudeGeometry(shape, { 
-        depth: .5,
-        bevelEnabled: false,
+    const model = new OBJLoader().parse(hexTileSimplifiedObj);
+    let m: THREE.Mesh | null = null;
+    model.traverse(child => {
+        if ((child as THREE.Mesh).isMesh) {
+            m = child as THREE.Mesh;
+        }
     });
+    if (m == null) {
+        throw new Error('expected to find a mesh when loading hex tile');
+    }
+
+    const mesh = m as THREE.Mesh;
 
     const texture = new THREE.TextureLoader().load(imagePath);
 
-    const material = new THREE.ShaderMaterial({
+    mesh.material = new THREE.ShaderMaterial({
         uniforms: {
             uTexture: { value: texture },
             uBackgroundColor: { value: new THREE.Color(backgroundColor) },
@@ -42,7 +49,7 @@ function createTileBasic(backgroundColor: THREE.ColorRepresentation, foregroundC
         vertexShader: `
             varying vec2 vertex_UV;
             void main() {
-                vertex_UV = uv * vec2(0.7, 0.7) + vec2(0.5, 0.5);
+                vertex_UV = uv;
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
             }
         `,
@@ -60,37 +67,52 @@ function createTileBasic(backgroundColor: THREE.ColorRepresentation, foregroundC
         `,
     });
 
-    const hexTile = new THREE.Mesh(geometry, material);
+    mesh.rotateX(Math.PI / 2);
 
-    hexTile.rotateZ(1 / 12 * 2 * Math.PI);
+    const s = RADIUS * 2 / Math.sqrt(3);
+    mesh.geometry.scale(s, s, s);
 
-    return hexTile;
+    return mesh;
 }
 
-const WHITE_BACKGROUND = 0xffec8c;
-const BLACK_BACKGROUND = 0x000000;
-const QUEEN_BEE_COLOUR = 0xff6f00;
-const SOLDIER_ANT_COLOUR = 0x40a0f5;
-const BEETLE_COLOUR = 0x7e1abd;
-const SPIDER_COLOUR = 0x7d502e;
-const GRASSHOPPER_COLOUR = 0x087a00;
-const LADYBUG_COLOUR = 0xff0000;
-const MOSQUITO_COLOUR = 0x888888;
+namespace pbr {
+    export const WHITE_BACKGROUND = 0xffec8c;
+    export const BLACK_BACKGROUND = 0x000000;
+    export const QUEEN_BEE_COLOUR = 0xff6f00;
+    export const SOLDIER_ANT_COLOUR = 0x40a0f5;
+    export const BEETLE_COLOUR = 0x7e1abd;
+    export const SPIDER_COLOUR = 0x7d502e;
+    export const GRASSHOPPER_COLOUR = 0x087a00;
+    export const LADYBUG_COLOUR = 0xff0000;
+    export const MOSQUITO_COLOUR = 0x888888;
+}
 
-export const WHITE_QUEEN_BEE = createTileBasic(WHITE_BACKGROUND, QUEEN_BEE_COLOUR, 'textures/queenbee.png');
-export const WHITE_SOLDIER_ANT = createTileBasic(WHITE_BACKGROUND, SOLDIER_ANT_COLOUR, 'textures/soldierant.png');
-export const WHITE_BEETLE = createTileBasic(WHITE_BACKGROUND, BEETLE_COLOUR, 'textures/beetle.png');
-export const WHITE_SPIDER = createTileBasic(WHITE_BACKGROUND, SPIDER_COLOUR, 'textures/spider.png');
-export const WHITE_GRASSHOPPER = createTileBasic(WHITE_BACKGROUND, GRASSHOPPER_COLOUR, 'textures/grasshopper.png');
-export const WHITE_LADYBUG = createTileBasic(WHITE_BACKGROUND, LADYBUG_COLOUR, 'textures/ladybug.png');
-export const WHITE_MOSQUITO = createTileBasic(WHITE_BACKGROUND, MOSQUITO_COLOUR, 'textures/mosquito.png');
-export const BLACK_QUEEN_BEE = createTileBasic(BLACK_BACKGROUND, QUEEN_BEE_COLOUR, 'textures/queenbee.png');
-export const BLACK_SOLDIER_ANT = createTileBasic(BLACK_BACKGROUND, SOLDIER_ANT_COLOUR, 'textures/soldierant.png');
-export const BLACK_BEETLE = createTileBasic(BLACK_BACKGROUND, BEETLE_COLOUR, 'textures/beetle.png');
-export const BLACK_SPIDER = createTileBasic(BLACK_BACKGROUND, SPIDER_COLOUR, 'textures/spider.png');
-export const BLACK_GRASSHOPPER = createTileBasic(BLACK_BACKGROUND, GRASSHOPPER_COLOUR, 'textures/grasshopper.png');
-export const BLACK_LADYBUG = createTileBasic(BLACK_BACKGROUND, LADYBUG_COLOUR, 'textures/ladybug.png');
-export const BLACK_MOSQUITO = createTileBasic(BLACK_BACKGROUND, MOSQUITO_COLOUR, 'textures/mosquito.png');
+namespace basic {
+    export const WHITE_BACKGROUND = 0xEDE8D0;
+    export const BLACK_BACKGROUND = 0x000000;
+    export const QUEEN_BEE_COLOUR = 0xFFFF00;
+    export const SOLDIER_ANT_COLOUR = 0x40a0f5;
+    export const BEETLE_COLOUR = 0x7e1abd;
+    export const SPIDER_COLOUR = 0x7d502e;
+    export const GRASSHOPPER_COLOUR = 0x61ad15;
+    export const LADYBUG_COLOUR = 0xff0000;
+    export const MOSQUITO_COLOUR = 0x888888;
+}
+
+export const WHITE_QUEEN_BEE = createTileBasic(basic.WHITE_BACKGROUND, basic.QUEEN_BEE_COLOUR, 'textures/queenbee.png');
+export const WHITE_SOLDIER_ANT = createTileBasic(basic.WHITE_BACKGROUND, basic.SOLDIER_ANT_COLOUR, 'textures/soldierant.png');
+export const WHITE_BEETLE = createTileBasic(basic.WHITE_BACKGROUND, basic.BEETLE_COLOUR, 'textures/beetle.png');
+export const WHITE_SPIDER = createTileBasic(basic.WHITE_BACKGROUND, basic.SPIDER_COLOUR, 'textures/spider.png');
+export const WHITE_GRASSHOPPER = createTileBasic(basic.WHITE_BACKGROUND, basic.GRASSHOPPER_COLOUR, 'textures/grasshopper.png');
+export const WHITE_LADYBUG = createTileBasic(basic.WHITE_BACKGROUND, basic.LADYBUG_COLOUR, 'textures/ladybug.png');
+export const WHITE_MOSQUITO = createTileBasic(basic.WHITE_BACKGROUND, basic.MOSQUITO_COLOUR, 'textures/mosquito.png');
+export const BLACK_QUEEN_BEE = createTileBasic(basic.BLACK_BACKGROUND, basic.QUEEN_BEE_COLOUR, 'textures/queenbee.png');
+export const BLACK_SOLDIER_ANT = createTileBasic(basic.BLACK_BACKGROUND, basic.SOLDIER_ANT_COLOUR, 'textures/soldierant.png');
+export const BLACK_BEETLE = createTileBasic(basic.BLACK_BACKGROUND, basic.BEETLE_COLOUR, 'textures/beetle.png');
+export const BLACK_SPIDER = createTileBasic(basic.BLACK_BACKGROUND, basic.SPIDER_COLOUR, 'textures/spider.png');
+export const BLACK_GRASSHOPPER = createTileBasic(basic.BLACK_BACKGROUND, basic.GRASSHOPPER_COLOUR, 'textures/grasshopper.png');
+export const BLACK_LADYBUG = createTileBasic(basic.BLACK_BACKGROUND, basic.LADYBUG_COLOUR, 'textures/ladybug.png');
+export const BLACK_MOSQUITO = createTileBasic(basic.BLACK_BACKGROUND, basic.MOSQUITO_COLOUR, 'textures/mosquito.png');
 
 async function createPbrTile(foregroundColor: number, backgroundColor: number, shapeUrl: string, normalUrl: string): Promise<THREE.Mesh> {
     const loaded = new OBJLoader().parse(hexTileObjSource);
@@ -176,23 +198,23 @@ async function createPbrTile(foregroundColor: number, backgroundColor: number, s
 export async function createTile(color: HiveColor, pieceType: HivePieceType): Promise<THREE.Mesh> {
     if (color == HiveColor.Black) {
         switch (pieceType) {
-            case HivePieceType.QueenBee: return createPbrTile(QUEEN_BEE_COLOUR, BLACK_BACKGROUND, 'textures/queenbee.png', 'textures/queenbee_normal.png');
-            case HivePieceType.SoldierAnt: return createPbrTile(SOLDIER_ANT_COLOUR, BLACK_BACKGROUND, 'textures/soldierant.png', 'textures/soldierant_normal.png');
-            case HivePieceType.Spider: return createPbrTile(SPIDER_COLOUR, BLACK_BACKGROUND, 'textures/spider.png', 'textures/spider_normal.png');
-            case HivePieceType.Grasshopper: return createPbrTile(GRASSHOPPER_COLOUR, BLACK_BACKGROUND, 'textures/grasshopper.png', 'textures/grasshopper_normal.png');
-            case HivePieceType.Beetle: return createPbrTile(BEETLE_COLOUR, BLACK_BACKGROUND, 'textures/beetle.png', 'textures/beetle_normal.png');
-            case HivePieceType.Ladybug: return createPbrTile(LADYBUG_COLOUR, BLACK_BACKGROUND, 'textures/ladybug.png', 'textures/ladybug_normal.png');
-            case HivePieceType.Mosquito: return createPbrTile(MOSQUITO_COLOUR, BLACK_BACKGROUND, 'textures/mosquito.png', 'textures/mosquito_normal.png');
+            case HivePieceType.QueenBee: return createPbrTile(pbr.QUEEN_BEE_COLOUR, pbr.BLACK_BACKGROUND, 'textures/queenbee.png', 'textures/queenbee_normal.png');
+            case HivePieceType.SoldierAnt: return createPbrTile(pbr.SOLDIER_ANT_COLOUR, pbr.BLACK_BACKGROUND, 'textures/soldierant.png', 'textures/soldierant_normal.png');
+            case HivePieceType.Spider: return createPbrTile(pbr.SPIDER_COLOUR, pbr.BLACK_BACKGROUND, 'textures/spider.png', 'textures/spider_normal.png');
+            case HivePieceType.Grasshopper: return createPbrTile(pbr.GRASSHOPPER_COLOUR, pbr.BLACK_BACKGROUND, 'textures/grasshopper.png', 'textures/grasshopper_normal.png');
+            case HivePieceType.Beetle: return createPbrTile(pbr.BEETLE_COLOUR, pbr.BLACK_BACKGROUND, 'textures/beetle.png', 'textures/beetle_normal.png');
+            case HivePieceType.Ladybug: return createPbrTile(pbr.LADYBUG_COLOUR, pbr.BLACK_BACKGROUND, 'textures/ladybug.png', 'textures/ladybug_normal.png');
+            case HivePieceType.Mosquito: return createPbrTile(pbr.MOSQUITO_COLOUR, pbr.BLACK_BACKGROUND, 'textures/mosquito.png', 'textures/mosquito_normal.png');
         }
     } else {
         switch (pieceType) {
-            case HivePieceType.QueenBee: return createPbrTile(QUEEN_BEE_COLOUR, WHITE_BACKGROUND, 'textures/queenbee.png', 'textures/queenbee_normal.png');
-            case HivePieceType.SoldierAnt: return createPbrTile(SOLDIER_ANT_COLOUR, WHITE_BACKGROUND, 'textures/soldierant.png', 'textures/soldierant_normal.png');
-            case HivePieceType.Spider: return createPbrTile(SPIDER_COLOUR, WHITE_BACKGROUND, 'textures/spider.png', 'textures/spider_normal.png');
-            case HivePieceType.Grasshopper: return createPbrTile(GRASSHOPPER_COLOUR, WHITE_BACKGROUND, 'textures/grasshopper.png', 'textures/grasshopper_normal.png');
-            case HivePieceType.Beetle: return createPbrTile(BEETLE_COLOUR, WHITE_BACKGROUND, 'textures/beetle.png', 'textures/beetle_normal.png');
-            case HivePieceType.Ladybug: return createPbrTile(LADYBUG_COLOUR, WHITE_BACKGROUND, 'textures/ladybug.png', 'textures/ladybug_normal.png');
-            case HivePieceType.Mosquito: return createPbrTile(MOSQUITO_COLOUR, WHITE_BACKGROUND, 'textures/mosquito.png', 'textures/mosquito_normal.png');
+            case HivePieceType.QueenBee: return createPbrTile(pbr.QUEEN_BEE_COLOUR, pbr.WHITE_BACKGROUND, 'textures/queenbee.png', 'textures/queenbee_normal.png');
+            case HivePieceType.SoldierAnt: return createPbrTile(pbr.SOLDIER_ANT_COLOUR, pbr.WHITE_BACKGROUND, 'textures/soldierant.png', 'textures/soldierant_normal.png');
+            case HivePieceType.Spider: return createPbrTile(pbr.SPIDER_COLOUR, pbr.WHITE_BACKGROUND, 'textures/spider.png', 'textures/spider_normal.png');
+            case HivePieceType.Grasshopper: return createPbrTile(pbr.GRASSHOPPER_COLOUR, pbr.WHITE_BACKGROUND, 'textures/grasshopper.png', 'textures/grasshopper_normal.png');
+            case HivePieceType.Beetle: return createPbrTile(pbr.BEETLE_COLOUR, pbr.WHITE_BACKGROUND, 'textures/beetle.png', 'textures/beetle_normal.png');
+            case HivePieceType.Ladybug: return createPbrTile(pbr.LADYBUG_COLOUR, pbr.WHITE_BACKGROUND, 'textures/ladybug.png', 'textures/ladybug_normal.png');
+            case HivePieceType.Mosquito: return createPbrTile(pbr.MOSQUITO_COLOUR, pbr.WHITE_BACKGROUND, 'textures/mosquito.png', 'textures/mosquito_normal.png');
         }
     }
 }
