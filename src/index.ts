@@ -4,6 +4,7 @@ import HUD from "./hud";
 import MouseStateTracker from "./mouse-state";
 import Gameplay from "./gameplay";
 import {LEFT_BUTTON} from "./constants";
+import NavigationOverlay from "./navigation-overlay";
 
 declare const Go: any;
 const go = new Go(); // Create a new Go instance
@@ -11,6 +12,7 @@ const go = new Go(); // Create a new Go instance
 let game: HiveGame;
 let hud: HUD;
 let gameplay: Gameplay;
+let overlay: NavigationOverlay;
 
 window.onload = async () => {
     const response = await fetch('main.wasm');
@@ -25,6 +27,7 @@ window.onload = async () => {
     hud = new HUD(game);
     gameplay = await Gameplay.create(game, hud);
     renderer.setAnimationLoop(animate);
+    overlay = new NavigationOverlay();
 };
 
 const renderer = new THREE.WebGLRenderer({alpha: true});
