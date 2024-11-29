@@ -1,18 +1,12 @@
 import * as THREE from 'three';
-import {HiveGame} from "./hive-game";
-import HUD from "./hud";
 import MouseStateTracker from "./mouse-state";
-import Gameplay from "./gameplay";
-import {LEFT_BUTTON} from "./constants";
 import NavigationOverlay, {GameplayMode} from "./navigation-overlay";
-import OnlineGameplay from "./online-gameplay";
+import OnlineScene from "./online-scene";
 
 declare const Go: any;
 const go = new Go(); // Create a new Go instance
 
-let game: HiveGame;
-let hud: HUD;
-let gameplay: Gameplay | OnlineGameplay;
+let gameplay: OnlineScene;
 let overlay: NavigationOverlay;
 
 window.onload = async () => {
@@ -21,24 +15,18 @@ window.onload = async () => {
     const {instance} = await WebAssembly.instantiate(buffer, go.importObject); // Use Go's import object
 
     go.run(instance); // Run the Go instance
-    // Can only use WebAssembly imports here
-    game = new HiveGame();
 
     overlay = new NavigationOverlay(onGameplayModeChange);
-    hud = new HUD(game);
-    gameplay = await Gameplay.create(game, hud);
+    gameplay = await OnlineScene.create();
     renderer.setAnimationLoop(animate);
 };
 
 async function onGameplayModeChange(mode: GameplayMode) {
     // TODO clean up the last gameplay
-    game = new HiveGame();
     switch (mode) {
     case GameplayMode.Local:
-        gameplay = await Gameplay.create(game, hud);
-        break;
+        throw new Error('local gameplay not implemented');
     case GameplayMode.Online:
-        gameplay = await OnlineGameplay.create(game, hud);
         break;
     default:
         throw new Error('illegal state, bad gameplay mode');
@@ -59,11 +47,7 @@ renderer.domElement.oncontextmenu = _ => {
 
 renderer.domElement.onmousedown = e => {
     mouseStateTracker.onMouseDown(e);
-    switch (e.button) {
-        case LEFT_BUTTON:
-            onLeftMouseDown(e);
-            break;
-    }
+    gameplay.onMouseDown(e, mouseStateTracker);
 };
 
 renderer.domElement.onmouseup = e => {
@@ -75,26 +59,13 @@ renderer.domElement.onwheel = e => {
 };
 
 renderer.domElement.onmousemove = e => {
-    gameplay.onMouseMove(e, mouseStateTracker);
+    gameplay?.onMouseMove(e, mouseStateTracker);
 };
-
-function onLeftMouseDown(e: MouseEvent) {
-    if (hud.onClick(e, mouseStateTracker)) {
-        gameplay.onClickAway();
-        return;
-    }
-
-    gameplay.onClick(e, mouseStateTracker);
-    hud.onClickAway();
-
-    hud.onUpdate();
-}
 
 document.body.appendChild(renderer.domElement);
 
 window.onresize = _ => {
     gameplay.onResize();
-    hud.onResize();
     renderer.setSize(window.innerWidth, window.innerHeight);
 };
 
@@ -102,10 +73,7 @@ const clock = new THREE.Clock();
 
 function animate() {
     const deltaTimeMs = clock.getDelta();
-    gameplay.onUpdate(deltaTimeMs, mouseStateTracker);
+    gameplay.update(deltaTimeMs, mouseStateTracker);
 
-    renderer.clear();
-    renderer.render(gameplay.scene, gameplay.camera);
-    renderer.clearDepth();
-    renderer.render(hud.scene, hud.camera);
+    gameplay.render(renderer);
 }

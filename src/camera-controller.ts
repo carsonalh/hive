@@ -69,7 +69,7 @@ class CameraController {
         this.updateCameraFromGroundAndAngles();
     }
 
-    public onUpdate(deltaTimeMs: number, state: MouseState): void {
+    public update(deltaTimeMs: number, state: MouseState): void {
         this.ground.lerp(this.midpoint, deltaTimeMs * CAMERA_LERP);
         const GOAL_LATITUDE = Math.PI / 2 - EPSILON;
         const GOAL_LONGITUDE = 0;

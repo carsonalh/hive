@@ -74,6 +74,18 @@ export class HiveGame {
     private readonly pieceTypeMap: Record<HivePieceType, number>;
     private readonly colorMap: Record<HiveColor, number>;
 
+    public static internalPieceTypeMap(): Record<HivePieceType, number> {
+        return {
+            [HivePieceType.QueenBee]: hive.PIECE_TYPE_QUEEN_BEE,
+            [HivePieceType.SoldierAnt]: hive.PIECE_TYPE_SOLDIER_ANT,
+            [HivePieceType.Spider]: hive.PIECE_TYPE_SPIDER,
+            [HivePieceType.Grasshopper]: hive.PIECE_TYPE_GRASSHOPPER,
+            [HivePieceType.Beetle]: hive.PIECE_TYPE_BEETLE,
+            [HivePieceType.Ladybug]: hive.PIECE_TYPE_LADYBUG,
+            [HivePieceType.Mosquito]: hive.PIECE_TYPE_MOSQUITO,
+        };
+    }
+
     public constructor() {
         this.game = hive.createHiveGame();
         this.pieceTypeMap = {

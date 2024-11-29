@@ -121,6 +121,13 @@ export class HexVector {
         return this._q === other._q && this._r === other._r;
     }
 
+    public json(): {q: number, r: number} {
+        return {
+            q: this._q,
+            r: this._r
+        }
+    }
+
     public toString(): string {
         return `HexVector [${this._q}, ${this._r}]`;
     }

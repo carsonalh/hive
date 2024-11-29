@@ -1,4 +1,4 @@
-import {HiveColor, HiveGame, HivePieceType} from "./hive-game";
+import {HiveColor, HivePieceType} from "./hive-game";
 import * as THREE from "three";
 import {
     BLACK_BEETLE,
@@ -7,7 +7,8 @@ import {
     BLACK_MOSQUITO,
     BLACK_QUEEN_BEE,
     BLACK_SOLDIER_ANT,
-    BLACK_SPIDER, HEXAGON_SHAPE,
+    BLACK_SPIDER,
+    HEXAGON_SHAPE,
     WHITE_BEETLE,
     WHITE_GRASSHOPPER,
     WHITE_LADYBUG,
@@ -20,11 +21,6 @@ import {MouseState} from "./mouse-state";
 import {HexGrid, HexVector} from "./hex-grid";
 import {RADIUS} from "./constants";
 
-export interface ExternalGameInfo {
-    selectedPieceType(): HivePieceType | null;
-    setPlayerColor(color: PlayerColor): void;
-}
-
 const TILE_WIDTH_PX = 100;
 const TILE_GAP_PX = 5;
 const TILE_0_LEFT_PX = 55;
@@ -36,10 +32,9 @@ export enum PlayerColor {
     White,
 }
 
-class HUD implements ExternalGameInfo {
+class Hud {
     private readonly _scene: THREE.Scene;
     private readonly _camera: THREE.OrthographicCamera;
-    private readonly game: HiveGame;
     private readonly whiteMeshes: THREE.Mesh[];
     private readonly blackMeshes: THREE.Mesh[];
     private readonly pieceTypes: HivePieceType[];
@@ -49,13 +44,19 @@ class HUD implements ExternalGameInfo {
     private grid: HexGrid;
     private selected: HivePieceType | null;
 
-    private lastColorToMove: HiveColor;
-    private lastMove: number;
     private tile0Location = new THREE.Vector3();
-    private playerColor = PlayerColor.ColorToMove;
+    private pieceCounts: Record<HivePieceType, number> = {
+        [HivePieceType.QueenBee]: 0,
+        [HivePieceType.SoldierAnt]: 0,
+        [HivePieceType.Spider]: 0,
+        [HivePieceType.Grasshopper]: 0,
+        [HivePieceType.Beetle]: 0,
+        [HivePieceType.Ladybug]: 0,
+        [HivePieceType.Mosquito]: 0,
+    };
+    private playerColor: HiveColor = HiveColor.Black;
 
-    public constructor(game: HiveGame) {
-        this.game = game;
+    public constructor() {
         this._scene = new THREE.Scene();
         this._camera = new THREE.OrthographicCamera(-5, 5, 5 * window.innerHeight / window.innerWidth, -5 * window.innerHeight / window.innerWidth);
         this._camera.position.z = 5;
@@ -70,9 +71,6 @@ class HUD implements ExternalGameInfo {
             new HexVector(-2, 5),
             new HexVector(-3, 6),
         ];
-
-        this.lastColorToMove = game.colorToMove();
-        this.lastMove = game.moveNumber();
 
         this.marker = new THREE.Mesh(
             new THREE.ShapeGeometry(HEXAGON_SHAPE.clone()),
@@ -129,7 +127,7 @@ class HUD implements ExternalGameInfo {
     /**
      * Return true if the click hit something in the hud.
      */
-    public onClick(e: MouseEvent, _: MouseState): boolean {
+    public onMouseDown(e: MouseEvent, _: MouseState): boolean {
         const hudPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
         const raycaster = new THREE.Raycaster();
         const clicked = new THREE.Vector2(
@@ -176,35 +174,23 @@ class HUD implements ExternalGameInfo {
         }
     }
 
-    public onUpdate() {
-        let changed = false;
-
-        if (this.playerColor === PlayerColor.ColorToMove) {
-            if (this.lastColorToMove !== this.game.colorToMove()) {
-                this.lastColorToMove = this.game.colorToMove();
-                changed = true;
-            }
-
-            if (this.lastMove !== this.game.moveNumber()) {
-                this.lastMove = this.game.moveNumber();
-                changed = true;
-            }
-        }
-
-        if (changed) {
-            this._scene.clear();
-            this.placeMeshesAndPieceCounts(this.coloredMeshes())
-        }
+    public update() {
+        this._scene.clear();
+        this.placeMeshesAndPieceCounts(this.coloredMeshes());
     }
 
     /**
      * Gets which piece type should be placed based on the HUD selection.
      */
-    public selectedPieceType(): HivePieceType | null {
+    public get selectedPieceType(): HivePieceType | null {
         return this.selected;
     }
 
-    public setPlayerColor(color: PlayerColor) {
+    public setPieceCounts(counts: Record<HivePieceType, number>): void {
+
+    }
+
+    public setPlayerColor(color: HiveColor) {
         this.playerColor = color;
         this._scene.clear();
         this.placeMeshesAndPieceCounts(this.coloredMeshes())
@@ -220,16 +206,12 @@ class HUD implements ExternalGameInfo {
 
     private coloredMeshes(): THREE.Mesh[] {
         switch (this.playerColor) {
-        case PlayerColor.ColorToMove:
-            return this.game.colorToMove() === HiveColor.Black
-                ? this.blackMeshes
-                : this.whiteMeshes;
-        case PlayerColor.Black:
-            return this.blackMeshes;
-        case PlayerColor.White:
-            return this.whiteMeshes;
-        default:
-            throw new Error('unreachable');
+            case HiveColor.Black:
+                return this.blackMeshes;
+            case HiveColor.White:
+                return this.whiteMeshes;
+            default:
+                throw new Error('unreachable');
         }
     }
 
@@ -259,21 +241,15 @@ class HUD implements ExternalGameInfo {
                 hex = this.locations[i].add(new HexVector(-1, 0));
             }
 
-            // console.log(`placing in hex ${hex}`)
-
             const location2d = this.grid.hexToEuclidean(hex).add(this.tile0Location);
-            // console.log(location2d)
             const location3d = new THREE.Vector3(location2d.x, location2d.y, 0);
             location3d.applyMatrix4(this._camera.projectionMatrix);
-            // console.log(location3d)
 
             this.pieceCountElements[i].style.left = `${window.innerWidth * (.5 * location3d.x + .5)}px`;
             this.pieceCountElements[i].style.top = `${window.innerHeight * (-.5 * location3d.y + .5)}px`;
-            this.pieceCountElements[i].textContent = String(
-                this.game.getTilesRemaining(this.game.colorToMove(), this.pieceTypes[i])
-            );
+            this.pieceCountElements[i].textContent = String(this.pieceCounts[this.pieceTypes[i]]);
         }
     }
 }
 
-export default HUD;
+export default Hud;

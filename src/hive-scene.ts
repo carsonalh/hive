@@ -4,36 +4,10 @@ import {STACK_HEIGHT_DISTANCE} from "./constants";
 import {MouseState} from "./mouse-state";
 import {createTile,} from "./tiles";
 import {HexGrid, HexVector} from "./hex-grid";
-import {ExternalGameInfo} from "./hud";
 import ErrorModal from "./error-modal";
 import CameraController from "./camera-controller";
 
-export interface Move {
-    moveType: "MOVE" | "PLACE";
-    movement?: {
-        from: {
-            q: number;
-            r: number;
-        };
-        to: {
-            q: number;
-            r: number;
-        };
-    };
-    placement?: {
-        pieceType: number;
-        position: {
-            q: number;
-            r: number;
-        };
-    };
-}
-
-export interface MoveConsumer {
-    consume(move: Move): unknown;
-}
-
-class Gameplay {
+class HiveScene {
     private readonly _scene: THREE.Scene;
     private readonly grid: HexGrid = new HexGrid();
     private readonly blackMeshes = new Map<HivePieceType, THREE.Mesh>();
@@ -41,12 +15,11 @@ class Gameplay {
     private readonly meshes = new Map<number, THREE.Mesh>();
     private readonly incorrectMoveModal = new ErrorModal({message: 'The attempted move was illegal'});
     private readonly cameraController: CameraController;
-    public moveConsumer: MoveConsumer = {consume: () => {}};
-    private selected: HexVector | null = null;
+    private _selected: HexVector | null = null;
 
-    public static async create(game: HiveGame, externalGameInfo: ExternalGameInfo, moveConsumer: MoveConsumer = {consume: () => {}}): Promise<Gameplay> {
-        const gameplay = new Gameplay(game, externalGameInfo);
-        gameplay.moveConsumer = moveConsumer;
+    public static async createWithBlankGame(): Promise<HiveScene> {
+        const game = new HiveGame();
+        const gameplay = new HiveScene(game);
         const pieceTypes = [
             HivePieceType.QueenBee, HivePieceType.SoldierAnt, HivePieceType.Spider,
             HivePieceType.Grasshopper, HivePieceType.Beetle, HivePieceType.Ladybug,
@@ -71,7 +44,7 @@ class Gameplay {
         return gameplay;
     }
 
-    private constructor(private readonly game: HiveGame, private readonly selector: ExternalGameInfo) {
+    private constructor(private readonly _game: HiveGame) {
         this._scene = new THREE.Scene();
         this._scene.background = new THREE.Color(0x175c29);
         const light = new THREE.DirectionalLight(0xffffff, 1);
@@ -95,6 +68,10 @@ class Gameplay {
         this.cameraController = new CameraController();
     }
 
+    public get game(): HiveGame {
+        return this._game;
+    }
+
     public onResize(): void {
         this.cameraController.onResize();
     }
@@ -104,22 +81,33 @@ class Gameplay {
     }
 
     /**
-     * Returns true if the event was handled.
+     * The current tile which is selected by the user.
      */
-    public onClick(e: MouseEvent, _state: MouseState): boolean {
-        const hex = this.getClickedTile(e);
-        let selectedPieceType: HivePieceType | null;
-
-        if ((selectedPieceType = this.selector.selectedPieceType()) != null) { // we have this.selected a piece and are now clicking to place it
-            this.tryPlacePiece(selectedPieceType, hex);
-        } else if (this.selected instanceof HexVector) {
-            this.tryMovePiece(this.selected, hex);
-        } else {
-            this.selected = hex;
-        }
-
-        return true;
+    public get selected(): HexVector | null {
+        return this._selected;
     }
+
+    public select(v: HexVector): void {
+        this._selected = v;
+    }
+
+    // /**
+    //  * Returns true if the event was handled.
+    //  */
+    // public onClick(e: MouseEvent, _state: MouseState): boolean {
+    //     const hex = this.getClickedTile(e);
+    //     let selectedPieceType: HivePieceType | null;
+    //
+    //     if ((selectedPieceType = this.selector.selectedPieceType()) != null) { // we have this.selected a piece and are now clicking to place it
+    //         this.placePiece(selectedPieceType, hex);
+    //     } else if (this._selected instanceof HexVector) {
+    //         this.movePiece(this._selected, hex);
+    //     } else {
+    //         this._selected = hex;
+    //     }
+    //
+    //     return true;
+    // }
 
     public getClickedTile(e: MouseEvent): HexVector {
         const raycaster = new THREE.Raycaster();
@@ -136,9 +124,9 @@ class Gameplay {
         return this.grid.euclideanToHex(new THREE.Vector2(clickedWorld.x, clickedWorld.y));
     }
 
-    public tryPlacePiece(pieceType: HivePieceType, position: HexVector): void {
-        const color = this.game.colorToMove();
-        const success = this.game.placeTile(pieceType, position);
+    public placePiece(pieceType: HivePieceType, position: HexVector): boolean {
+        const color = this._game.colorToMove();
+        const success = this._game.placeTile(pieceType, position);
 
         if (success) {
             let mesh: THREE.Mesh;
@@ -164,30 +152,24 @@ class Gameplay {
             const position2d = this.grid.hexToEuclidean(position);
             mesh.position.set(position2d.x, position2d.y, 0);
             this._scene.add(mesh);
-            this.meshes.set(this.game.idOfLastPlaced()!, mesh);
-
-            this.moveConsumer.consume({
-                moveType: "PLACE",
-                placement: {
-                    pieceType,
-                    position: { q: position.q, r: position.r },
-                },
-            });
+            this.meshes.set(this._game.idOfLastPlaced()!, mesh);
         } else {
             this.incorrectMoveModal.show();
         }
 
         this.updateMidpoint();
-        this.selected = null;
+        this._selected = null;
+
+        return success;
     }
 
-    public tryMovePiece(from: HexVector, to: HexVector): void {
+    public movePiece(from: HexVector, to: HexVector): boolean {
         // we rely on the facts that 'this.game' never re-orders the tiles, and that tiles
         // cannot be removed from play
-        const tileToMoveId = this.game.idOfTileAt(from);
+        const tileToMoveId = this._game.idOfTileAt(from);
 
         if (tileToMoveId != null) {
-            const success = this.game.moveTile(from, to);
+            const success = this._game.moveTile(from, to);
             this.updateMidpoint();
 
             if (success) {
@@ -196,29 +178,25 @@ class Gameplay {
                 mesh.position.set(
                     position2d.x,
                     position2d.y,
-                    this.game.tiles()[tileToMoveId].stackHeight * STACK_HEIGHT_DISTANCE
+                    this._game.tiles()[tileToMoveId].stackHeight * STACK_HEIGHT_DISTANCE
                 );
-
-                this.moveConsumer.consume({
-                    moveType: "MOVE",
-                    movement: {
-                        from: { q: from.q, r: from.r },
-                        to: { q: to.q, r: to.r },
-                    },
-                })
             } else {
                 this.incorrectMoveModal.show();
             }
+
+            return success;
         }
 
-        this.selected = null;
+        this._selected = null;
+
+        return false;
     }
 
     private updateMidpoint(): void {
         const midpoint = new THREE.Vector2();
 
         let count = 0;
-        for (const tile of this.game.tiles()) {
+        for (const tile of this._game.tiles()) {
             const point = this.grid.hexToEuclidean(tile.position);
             midpoint.add(point);
             count++;
@@ -229,15 +207,15 @@ class Gameplay {
         this.cameraController.onMidpointChange(new THREE.Vector3(midpoint.x, midpoint.y, 0));
     }
 
-    public onUpdate(deltaTimeMs: number, state: MouseState): void {
-        this.cameraController.onUpdate(deltaTimeMs, state);
+    public update(deltaTimeMs: number, state: MouseState): void {
+        this.cameraController.update(deltaTimeMs, state);
     }
 
     /**
      * To be called when clicked away from the 'gameplay' scene.
      */
     public onClickAway(): void {
-        this.selected = null;
+        this._selected = null;
     }
 
     public onMouseMove(e: MouseEvent, state: MouseState): void {
@@ -253,4 +231,4 @@ class Gameplay {
     }
 }
 
-export default Gameplay;
+export default HiveScene;
