@@ -20,8 +20,9 @@ import {MouseState} from "./mouse-state";
 import {HexGrid, HexVector} from "./hex-grid";
 import {RADIUS} from "./constants";
 
-export interface ReserveTileSelector {
-    selectedPieceTypeForPlacement(): HivePieceType | null;
+export interface ExternalGameInfo {
+    selectedPieceType(): HivePieceType | null;
+    setPlayerColor(color: PlayerColor): void;
 }
 
 const TILE_WIDTH_PX = 100;
@@ -29,7 +30,13 @@ const TILE_GAP_PX = 5;
 const TILE_0_LEFT_PX = 55;
 const TILE_0_TOP_PX = 55 * 2 / Math.sqrt(3);
 
-class HUD implements ReserveTileSelector {
+export enum PlayerColor {
+    ColorToMove,
+    Black,
+    White,
+}
+
+class HUD implements ExternalGameInfo {
     private readonly _scene: THREE.Scene;
     private readonly _camera: THREE.OrthographicCamera;
     private readonly game: HiveGame;
@@ -45,6 +52,7 @@ class HUD implements ReserveTileSelector {
     private lastColorToMove: HiveColor;
     private lastMove: number;
     private tile0Location = new THREE.Vector3();
+    private playerColor = PlayerColor.ColorToMove;
 
     public constructor(game: HiveGame) {
         this.game = game;
@@ -171,14 +179,16 @@ class HUD implements ReserveTileSelector {
     public onUpdate() {
         let changed = false;
 
-        if (this.lastColorToMove !== this.game.colorToMove()) {
-            this.lastColorToMove = this.game.colorToMove();
-            changed = true;
-        }
+        if (this.playerColor === PlayerColor.ColorToMove) {
+            if (this.lastColorToMove !== this.game.colorToMove()) {
+                this.lastColorToMove = this.game.colorToMove();
+                changed = true;
+            }
 
-        if (this.lastMove !== this.game.moveNumber()) {
-            this.lastMove = this.game.moveNumber();
-            changed = true;
+            if (this.lastMove !== this.game.moveNumber()) {
+                this.lastMove = this.game.moveNumber();
+                changed = true;
+            }
         }
 
         if (changed) {
@@ -190,8 +200,14 @@ class HUD implements ReserveTileSelector {
     /**
      * Gets which piece type should be placed based on the HUD selection.
      */
-    public selectedPieceTypeForPlacement(): HivePieceType | null {
+    public selectedPieceType(): HivePieceType | null {
         return this.selected;
+    }
+
+    public setPlayerColor(color: PlayerColor) {
+        this.playerColor = color;
+        this._scene.clear();
+        this.placeMeshesAndPieceCounts(this.coloredMeshes())
     }
 
     public get scene(): THREE.Scene {
@@ -203,9 +219,18 @@ class HUD implements ReserveTileSelector {
     }
 
     private coloredMeshes(): THREE.Mesh[] {
-        return this.game.colorToMove() === HiveColor.Black
-            ? this.blackMeshes
-            : this.whiteMeshes;
+        switch (this.playerColor) {
+        case PlayerColor.ColorToMove:
+            return this.game.colorToMove() === HiveColor.Black
+                ? this.blackMeshes
+                : this.whiteMeshes;
+        case PlayerColor.Black:
+            return this.blackMeshes;
+        case PlayerColor.White:
+            return this.whiteMeshes;
+        default:
+            throw new Error('unreachable');
+        }
     }
 
     private placeMeshesAndPieceCounts(meshes: THREE.Mesh[]): void {

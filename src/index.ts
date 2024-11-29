@@ -4,14 +4,15 @@ import HUD from "./hud";
 import MouseStateTracker from "./mouse-state";
 import Gameplay from "./gameplay";
 import {LEFT_BUTTON} from "./constants";
-import NavigationOverlay from "./navigation-overlay";
+import NavigationOverlay, {GameplayMode} from "./navigation-overlay";
+import OnlineGameplay from "./online-gameplay";
 
 declare const Go: any;
 const go = new Go(); // Create a new Go instance
 
 let game: HiveGame;
 let hud: HUD;
-let gameplay: Gameplay;
+let gameplay: Gameplay | OnlineGameplay;
 let overlay: NavigationOverlay;
 
 window.onload = async () => {
@@ -22,13 +23,27 @@ window.onload = async () => {
     go.run(instance); // Run the Go instance
     // Can only use WebAssembly imports here
     game = new HiveGame();
-    game.debug();
 
+    overlay = new NavigationOverlay(onGameplayModeChange);
     hud = new HUD(game);
     gameplay = await Gameplay.create(game, hud);
     renderer.setAnimationLoop(animate);
-    overlay = new NavigationOverlay();
 };
+
+async function onGameplayModeChange(mode: GameplayMode) {
+    // TODO clean up the last gameplay
+    game = new HiveGame();
+    switch (mode) {
+    case GameplayMode.Local:
+        gameplay = await Gameplay.create(game, hud);
+        break;
+    case GameplayMode.Online:
+        gameplay = await OnlineGameplay.create(game, hud);
+        break;
+    default:
+        throw new Error('illegal state, bad gameplay mode');
+    }
+}
 
 const renderer = new THREE.WebGLRenderer({alpha: true});
 renderer.setSize(window.innerWidth, window.innerHeight);

@@ -4,9 +4,34 @@ import {STACK_HEIGHT_DISTANCE} from "./constants";
 import {MouseState} from "./mouse-state";
 import {createTile,} from "./tiles";
 import {HexGrid, HexVector} from "./hex-grid";
-import {ReserveTileSelector} from "./hud";
+import {ExternalGameInfo} from "./hud";
 import ErrorModal from "./error-modal";
 import CameraController from "./camera-controller";
+
+export interface Move {
+    moveType: "MOVE" | "PLACE";
+    movement?: {
+        from: {
+            q: number;
+            r: number;
+        };
+        to: {
+            q: number;
+            r: number;
+        };
+    };
+    placement?: {
+        pieceType: number;
+        position: {
+            q: number;
+            r: number;
+        };
+    };
+}
+
+export interface MoveConsumer {
+    consume(move: Move): unknown;
+}
 
 class Gameplay {
     private readonly _scene: THREE.Scene;
@@ -16,10 +41,12 @@ class Gameplay {
     private readonly meshes = new Map<number, THREE.Mesh>();
     private readonly incorrectMoveModal = new ErrorModal({message: 'The attempted move was illegal'});
     private readonly cameraController: CameraController;
+    public moveConsumer: MoveConsumer = {consume: () => {}};
     private selected: HexVector | null = null;
 
-    public static async create(game: HiveGame, selector: ReserveTileSelector): Promise<Gameplay> {
-        const gameplay = new Gameplay(game, selector);
+    public static async create(game: HiveGame, externalGameInfo: ExternalGameInfo, moveConsumer: MoveConsumer = {consume: () => {}}): Promise<Gameplay> {
+        const gameplay = new Gameplay(game, externalGameInfo);
+        gameplay.moveConsumer = moveConsumer;
         const pieceTypes = [
             HivePieceType.QueenBee, HivePieceType.SoldierAnt, HivePieceType.Spider,
             HivePieceType.Grasshopper, HivePieceType.Beetle, HivePieceType.Ladybug,
@@ -41,10 +68,10 @@ class Gameplay {
             gameplay.whiteMeshes.set(pieceTypes[i], whiteMeshes[i]);
         }
 
-        return gameplay
+        return gameplay;
     }
 
-    private constructor(private readonly game: HiveGame, private readonly selector: ReserveTileSelector) {
+    private constructor(private readonly game: HiveGame, private readonly selector: ExternalGameInfo) {
         this._scene = new THREE.Scene();
         this._scene.background = new THREE.Color(0x175c29);
         const light = new THREE.DirectionalLight(0xffffff, 1);
@@ -80,6 +107,21 @@ class Gameplay {
      * Returns true if the event was handled.
      */
     public onClick(e: MouseEvent, _state: MouseState): boolean {
+        const hex = this.getClickedTile(e);
+        let selectedPieceType: HivePieceType | null;
+
+        if ((selectedPieceType = this.selector.selectedPieceType()) != null) { // we have this.selected a piece and are now clicking to place it
+            this.tryPlacePiece(selectedPieceType, hex);
+        } else if (this.selected instanceof HexVector) {
+            this.tryMovePiece(this.selected, hex);
+        } else {
+            this.selected = hex;
+        }
+
+        return true;
+    }
+
+    public getClickedTile(e: MouseEvent): HexVector {
         const raycaster = new THREE.Raycaster();
         const clickedNDC = new THREE.Vector2(
             2 * e.clientX / window.innerWidth - 1,
@@ -91,77 +133,85 @@ class Gameplay {
         raycaster.ray.intersectPlane(gameSurface, clickedWorld);
         raycaster.setFromCamera(clickedNDC, this.cameraController.camera);
         raycaster.ray.intersectPlane(gameSurface, clickedWorld)
-        const hex = this.grid.euclideanToHex(new THREE.Vector2(clickedWorld.x, clickedWorld.y));
-        let selectedPieceType: HivePieceType | null;
-        if ((selectedPieceType = this.selector.selectedPieceTypeForPlacement()) != null) { // we have this.selected a piece and are now clicking to place it
-            const color = this.game.colorToMove();
-            const success = this.game.placeTile(selectedPieceType, hex);
+        return this.grid.euclideanToHex(new THREE.Vector2(clickedWorld.x, clickedWorld.y));
+    }
+
+    public tryPlacePiece(pieceType: HivePieceType, position: HexVector): void {
+        const color = this.game.colorToMove();
+        const success = this.game.placeTile(pieceType, position);
+
+        if (success) {
+            let mesh: THREE.Mesh;
+            switch (color) {
+                case HiveColor.White: {
+                    const got = this.whiteMeshes.get(pieceType)?.clone();
+                    if (got == null) {
+                        throw new Error(`mesh of piece type ${pieceType} was not created on game setup`);
+                    }
+                    mesh = got;
+                    break;
+                }
+                case HiveColor.Black: {
+                    const got = this.blackMeshes.get(pieceType)?.clone();
+                    if (got == null) {
+                        throw new Error(`mesh of piece type ${pieceType} was not created on game setup`);
+                    }
+                    mesh = got;
+                    break;
+                }
+            }
+
+            const position2d = this.grid.hexToEuclidean(position);
+            mesh.position.set(position2d.x, position2d.y, 0);
+            this._scene.add(mesh);
+            this.meshes.set(this.game.idOfLastPlaced()!, mesh);
+
+            this.moveConsumer.consume({
+                moveType: "PLACE",
+                placement: {
+                    pieceType,
+                    position: { q: position.q, r: position.r },
+                },
+            });
+        } else {
+            this.incorrectMoveModal.show();
+        }
+
+        this.updateMidpoint();
+        this.selected = null;
+    }
+
+    public tryMovePiece(from: HexVector, to: HexVector): void {
+        // we rely on the facts that 'this.game' never re-orders the tiles, and that tiles
+        // cannot be removed from play
+        const tileToMoveId = this.game.idOfTileAt(from);
+
+        if (tileToMoveId != null) {
+            const success = this.game.moveTile(from, to);
             this.updateMidpoint();
 
             if (success) {
-                let mesh: THREE.Mesh;
-                switch (color) {
-                    case HiveColor.White: {
-                        const got = this.whiteMeshes.get(selectedPieceType)?.clone();
-                        if (got == null) {
-                            throw new Error(`mesh of piece type ${selectedPieceType} was not created on game setup`);
-                        }
-                        mesh = got;
-                        break;
-                    }
-                    case HiveColor.Black: {
-                        const got = this.blackMeshes.get(selectedPieceType)?.clone();
-                        if (got == null) {
-                            throw new Error(`mesh of piece type ${selectedPieceType} was not created on game setup`);
-                        }
-                        mesh = got;
-                        break;
-                    }
-                }
+                const position2d = this.grid.hexToEuclidean(to);
+                const mesh = this.meshes.get(tileToMoveId)!;
+                mesh.position.set(
+                    position2d.x,
+                    position2d.y,
+                    this.game.tiles()[tileToMoveId].stackHeight * STACK_HEIGHT_DISTANCE
+                );
 
-                const position2d = this.grid.hexToEuclidean(hex);
-                mesh.position.set(position2d.x, position2d.y, 0);
-                this._scene.add(mesh);
-                this.meshes.set(this.game.idOfLastPlaced()!, mesh);
+                this.moveConsumer.consume({
+                    moveType: "MOVE",
+                    movement: {
+                        from: { q: from.q, r: from.r },
+                        to: { q: to.q, r: to.r },
+                    },
+                })
             } else {
                 this.incorrectMoveModal.show();
             }
-
-            this.selected = null;
-        } else if (this.selected instanceof HexVector) {
-            // we rely on the facts that 'this.game' never re-orders the tiles, and that tiles
-            // cannot be removed from play
-            const tileToMoveId = this.game.idOfTileAt(this.selected);
-
-            if (tileToMoveId != null) {
-                const success = this.game.moveTile(this.selected, hex);
-                this.updateMidpoint();
-
-                if (success) {
-                    const position2d = this.grid.hexToEuclidean(hex);
-                    const mesh = this.meshes.get(tileToMoveId)!;
-                    mesh.position.set(
-                        position2d.x,
-                        position2d.y,
-                        this.game.tiles()[tileToMoveId].stackHeight * STACK_HEIGHT_DISTANCE
-                    );
-                } else {
-                    this.incorrectMoveModal.show();
-                }
-            }
-
-            this.selected = null;
-        } else {
-            this.selected = hex;
         }
 
-        this.printShadowValues();
-        return true;
-    }
-
-    private printShadowValues() {
-        console.log(`there should be ${this.meshes.size} values`)
-        this.meshes.forEach(m => console.log(m.castShadow, m.receiveShadow))
+        this.selected = null;
     }
 
     private updateMidpoint(): void {

@@ -58,7 +58,7 @@ export default class NavigationOverlay {
         // gameplay setup
         {
             const backToMainMenuButton = document.createElement('button');
-            backToMainMenuButton.textContent = 'ExitGame';
+            backToMainMenuButton.textContent = 'Back to Main Menu';
 
             backToMainMenuButton.style.position = 'absolute';
             backToMainMenuButton.style.top = '100px';
