@@ -2,11 +2,13 @@ import * as THREE from 'three';
 import MouseStateTracker from "./mouse-state";
 import NavigationOverlay, {GameplayMode} from "./navigation-overlay";
 import OnlineScene from "./online-scene";
+import LocalScene from "./local-scene";
+import {GameplayScene} from "./gameplay-scene";
 
 declare const Go: any;
 const go = new Go(); // Create a new Go instance
 
-let gameplay: OnlineScene;
+let gameplay: GameplayScene;
 let overlay: NavigationOverlay;
 
 window.onload = async () => {
@@ -17,16 +19,18 @@ window.onload = async () => {
     go.run(instance); // Run the Go instance
 
     overlay = new NavigationOverlay(onGameplayModeChange);
-    gameplay = await OnlineScene.create();
     renderer.setAnimationLoop(animate);
 };
 
 async function onGameplayModeChange(mode: GameplayMode) {
-    // TODO clean up the last gameplay
+    gameplay?.cleanup();
+
     switch (mode) {
     case GameplayMode.Local:
-        throw new Error('local gameplay not implemented');
+        gameplay = await LocalScene.create();
+        break;
     case GameplayMode.Online:
+        gameplay = await OnlineScene.create();
         break;
     default:
         throw new Error('illegal state, bad gameplay mode');
@@ -47,7 +51,7 @@ renderer.domElement.oncontextmenu = _ => {
 
 renderer.domElement.onmousedown = e => {
     mouseStateTracker.onMouseDown(e);
-    gameplay.onMouseDown(e, mouseStateTracker);
+    gameplay?.onMouseDown(e, mouseStateTracker);
 };
 
 renderer.domElement.onmouseup = e => {
@@ -55,7 +59,7 @@ renderer.domElement.onmouseup = e => {
 };
 
 renderer.domElement.onwheel = e => {
-    gameplay.onWheel(e);
+    gameplay?.onWheel(e);
 };
 
 renderer.domElement.onmousemove = e => {
@@ -65,7 +69,7 @@ renderer.domElement.onmousemove = e => {
 document.body.appendChild(renderer.domElement);
 
 window.onresize = _ => {
-    gameplay.onResize();
+    gameplay?.onResize && gameplay.onResize();
     renderer.setSize(window.innerWidth, window.innerHeight);
 };
 
@@ -73,7 +77,6 @@ const clock = new THREE.Clock();
 
 function animate() {
     const deltaTimeMs = clock.getDelta();
-    gameplay.update(deltaTimeMs, mouseStateTracker);
-
-    gameplay.render(renderer);
+    gameplay?.update(deltaTimeMs, mouseStateTracker);
+    gameplay?.render(renderer);
 }

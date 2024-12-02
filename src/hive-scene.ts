@@ -91,31 +91,12 @@ class HiveScene {
         this._selected = v;
     }
 
-    // /**
-    //  * Returns true if the event was handled.
-    //  */
-    // public onClick(e: MouseEvent, _state: MouseState): boolean {
-    //     const hex = this.getClickedTile(e);
-    //     let selectedPieceType: HivePieceType | null;
-    //
-    //     if ((selectedPieceType = this.selector.selectedPieceType()) != null) { // we have this.selected a piece and are now clicking to place it
-    //         this.placePiece(selectedPieceType, hex);
-    //     } else if (this._selected instanceof HexVector) {
-    //         this.movePiece(this._selected, hex);
-    //     } else {
-    //         this._selected = hex;
-    //     }
-    //
-    //     return true;
-    // }
-
     public getClickedTile(e: MouseEvent): HexVector {
         const raycaster = new THREE.Raycaster();
         const clickedNDC = new THREE.Vector2(
             2 * e.clientX / window.innerWidth - 1,
             -2 * e.clientY / window.innerHeight + 1,
         );
-        // console.log(clickedWorld)
         const gameSurface = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
         const clickedWorld = new THREE.Vector3();
         raycaster.ray.intersectPlane(gameSurface, clickedWorld);

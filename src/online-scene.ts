@@ -5,8 +5,9 @@ import Hud from "./hud";
 import {MouseState} from "./mouse-state";
 import {LEFT_BUTTON} from "./constants";
 import OnlineClient, {Move} from "./online-client";
+import {GameplayScene} from "./gameplay-scene";
 
-export default class OnlineScene {
+export default class OnlineScene implements GameplayScene {
     private loadingModal: HTMLElement;
     private joiningModal: HTMLElement;
     private displayedModal: HTMLElement | null = null;
@@ -134,6 +135,10 @@ export default class OnlineScene {
         renderer.render(this.scene, this.camera);
         renderer.clearDepth();
         renderer.render(this.hud.scene, this.hud.camera);
+    }
+
+    public cleanup() {
+        this.hud.clearDomElements();
     }
 
     public onMouseMove(e: MouseEvent, state: MouseState): void {

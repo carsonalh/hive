@@ -26,12 +26,6 @@ const TILE_GAP_PX = 5;
 const TILE_0_LEFT_PX = 55;
 const TILE_0_TOP_PX = 55 * 2 / Math.sqrt(3);
 
-export enum PlayerColor {
-    ColorToMove,
-    Black,
-    White,
-}
-
 class Hud {
     private readonly _scene: THREE.Scene;
     private readonly _camera: THREE.OrthographicCamera;
@@ -177,6 +171,10 @@ class Hud {
     public update() {
         this._scene.clear();
         this.placeMeshesAndPieceCounts(this.coloredMeshes());
+
+        if (this.selected != null) {
+            this._scene.add(this.marker);
+        }
     }
 
     /**
@@ -184,6 +182,12 @@ class Hud {
      */
     public get selectedPieceType(): HivePieceType | null {
         return this.selected;
+    }
+
+    public clearDomElements(): void {
+        for (const e of this.pieceCountElements) {
+            document.body.removeChild(e);
+        }
     }
 
     public setPieceCounts(counts: Record<HivePieceType, number>): void {
