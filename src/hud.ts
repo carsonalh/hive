@@ -187,7 +187,7 @@ class Hud {
     }
 
     public setPieceCounts(counts: Record<HivePieceType, number>): void {
-
+        this.pieceCounts = {...counts};
     }
 
     public setPlayerColor(color: HiveColor) {

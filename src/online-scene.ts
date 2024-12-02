@@ -104,6 +104,7 @@ export default class OnlineScene {
                 if (this.hud.selectedPieceType != null) {
                     if (this.hiveScene.placePiece(this.hud.selectedPieceType, hit)) {
                         this.client.placePiece(this.hud.selectedPieceType, hit);
+                        this.updateHud();
                     }
                 } else if (this.hiveScene.selected != null) {
                     if (this.hiveScene.movePiece(this.hiveScene.selected, hit)) {
