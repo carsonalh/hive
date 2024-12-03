@@ -9,16 +9,15 @@
         * {
             padding: 0;
             margin: 0;
+            font-family: Barlow;
         }
 
-        p {
-            font-weight: bold;
-            font-size: 2rem;
+        :root {
+            --background: #F1A908;
+            --background-light: #F4B72F;
         }
 
         .navigation-overlay {
-            --background: #F1A908;
-            --background-light: #F4B72F;
             position: absolute;
             top: 0;
             left: 0;
@@ -38,7 +37,7 @@
             margin-top: 80px;
         }
 
-        .navigation-overlay button {
+        .navigation-button {
             --hex-height: 60px;
             --hexagon-inset: calc(var(--hex-height) / (2 * sqrt(3)));
             --x-offset: 6px;
@@ -46,7 +45,7 @@
             font-family: inherit;
             font-weight: 600;
             height: var(--hex-height);
-            min-width: 200px;
+            width: 200px;
             align-self: center;
             cursor: pointer;
             border: none;
@@ -64,7 +63,7 @@
             );
         }
 
-        .navigation-overlay button:hover {
+        .navigation-button:hover {
             background-color: #202020;
         }
 
@@ -111,6 +110,13 @@
 
         .navigation-overlay .background-hexagon:nth-of-type(3) {
             transform: translate(calc(var(--hex-width) * 3 / 4 + var(--hex-gap) * 2 / sqrt(3)), calc((var(--hex-height) + var(--hex-gap)) / 2));
+        }
+
+        .navigation-button-back {
+            position: absolute;
+            top: 40px;
+            right: 40px;
+            transform: translate(0, 0);
         }
     </style>
 </head>

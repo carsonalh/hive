@@ -33,7 +33,7 @@ export default class NavigationOverlay {
 
             const playOnlineButton = document.createElement('button');
             playOnlineButton.textContent = 'Play Online';
-            playOnlineButton.classList.add('button-online');
+            playOnlineButton.classList.add('navigation-button');
 
             playOnlineButton.onclick = () => {
                 this.toOnlineGameplayMode();
@@ -42,7 +42,7 @@ export default class NavigationOverlay {
 
             const playLocallyButton = document.createElement('button');
             playLocallyButton.textContent = 'Local PvP';
-            playLocallyButton.classList.add('button-local');
+            playLocallyButton.classList.add('navigation-button');
 
             playLocallyButton.onclick = () => {
                 this.toLocalGameplayMode();
@@ -59,17 +59,14 @@ export default class NavigationOverlay {
         // gameplay setup
         {
             const backToMainMenuButton = document.createElement('button');
-            backToMainMenuButton.textContent = 'Back to Main Menu';
-
-            backToMainMenuButton.style.position = 'absolute';
-            backToMainMenuButton.style.top = '100px';
-            backToMainMenuButton.style.right = '100px';
+            backToMainMenuButton.classList.add('navigation-button', 'navigation-button-back');
+            backToMainMenuButton.textContent = 'Exit Game';
 
             backToMainMenuButton.onclick = () => {
                 this.transition(this.mainMenuElements);
             };
 
-            this.gameplayElements.push(backToMainMenuButton);
+            this.gameplayElements = [backToMainMenuButton];
         }
 
         this.transition(this.mainMenuElements);
