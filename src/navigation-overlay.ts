@@ -14,19 +14,26 @@ export default class NavigationOverlay {
     public constructor(private onGameplayModeChange?: (mode: GameplayMode) => unknown) {
         // create the main menu layout
         {
-            const background = document.createElement('div');
-            background.style.position = 'absolute';
-            background.style.display = 'block';
-            background.style.left = '0';
-            background.style.top = '0';
-            background.style.width = '100vw';
-            background.style.height = '100vh';
-            background.style.backgroundColor = 'red';
-            background.style.zIndex = '1';
+            const mainMenu = document.createElement('div');
+            mainMenu.classList.add('navigation-overlay');
+
+            const title = document.createElement('h1');
+            title.textContent = 'HiveGame.io';
+
+            const backgroundHexagon1 = document.createElement('div');
+            backgroundHexagon1.classList.add('background-hexagon');
+            const backgroundHexagon2 = document.createElement('div');
+            backgroundHexagon2.classList.add('background-hexagon');
+            const backgroundHexagon3 = document.createElement('div');
+            backgroundHexagon3.classList.add('background-hexagon');
+
+            title.appendChild(backgroundHexagon1);
+            title.appendChild(backgroundHexagon2);
+            title.appendChild(backgroundHexagon3);
 
             const playOnlineButton = document.createElement('button');
             playOnlineButton.textContent = 'Play Online';
-            playOnlineButton.style.marginTop = '100px';
+            playOnlineButton.classList.add('button-online');
 
             playOnlineButton.onclick = () => {
                 this.toOnlineGameplayMode();
@@ -34,25 +41,19 @@ export default class NavigationOverlay {
             };
 
             const playLocallyButton = document.createElement('button');
-            playLocallyButton.textContent = 'Play Locally';
-            playLocallyButton.style.marginTop = '200px';
+            playLocallyButton.textContent = 'Local PvP';
+            playLocallyButton.classList.add('button-local');
 
             playLocallyButton.onclick = () => {
                 this.toLocalGameplayMode();
                 this.transition(this.gameplayElements);
             };
 
-            for (const button of [playOnlineButton, playLocallyButton]) {
-                button.style.zIndex = '2';
-                button.style.position = 'absolute';
-                button.style.marginLeft = '50vw';
-                button.style.transform = 'translate(-50%, 0)';
-            }
+            mainMenu.appendChild(title);
+            mainMenu.appendChild(playOnlineButton);
+            mainMenu.appendChild(playLocallyButton);
 
-            background.appendChild(playOnlineButton);
-            background.appendChild(playLocallyButton);
-
-            this.mainMenuElements = [background];
+            this.mainMenuElements = [mainMenu];
         }
 
         // gameplay setup
