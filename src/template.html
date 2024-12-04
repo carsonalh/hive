@@ -118,6 +118,30 @@
             right: 40px;
             transform: translate(0, 0);
         }
+
+        .hud-move-indicator {
+            --height: 48px;
+            --width: 200px;
+            position: absolute;
+            display: block;
+            background-color: black;
+            color: #d0d0d0;
+            height: var(--height);
+            line-height: var(--height);
+            box-sizing: border-box;
+            padding-left: 8px;
+            width: var(--width);
+            font-weight: 500;
+            font-size: 20px;
+            clip-path: polygon(0 0, calc(var(--width) - var(--height) / (2 * sqrt(3))) 0, 100% 50%, calc(var(--width) - var(--height) / (2 * sqrt(3))) 100%, 0 100%);
+        }
+
+        .hud-bubble-text {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            font-weight: 700;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>

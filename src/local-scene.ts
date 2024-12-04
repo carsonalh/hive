@@ -35,7 +35,9 @@ export default class LocalScene implements GameplayScene {
             pieceCounts[p] = count;
         }
 
-        this.hud.setPlayerColor(this.hiveScene.game.colorToMove());
+        const toMove = this.hiveScene.game.colorToMove();
+        this.hud.setPlayerColor(toMove);
+        this.hud.setPlayerToMove(toMove);
 
         this.hud.setPieceCounts(pieceCounts);
         this.hud.update();

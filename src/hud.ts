@@ -18,13 +18,15 @@ import {
     WHITE_SPIDER
 } from "./tiles";
 import {MouseState} from "./mouse-state";
-import {HexGrid, HexVector} from "./hex-grid";
 import {RADIUS} from "./constants";
+import {ndcToScreen} from "./util";
 
 const TILE_WIDTH_PX = 100;
-const TILE_GAP_PX = 5;
-const TILE_0_LEFT_PX = 55;
-const TILE_0_TOP_PX = 55 * 2 / Math.sqrt(3);
+const TILE_GAP_PX = 20;
+const HORIZONTAL_PADDING_PX = 30;
+const MOVE_INDICATOR_PADDING_TOP_PX = 30;
+const MARKER_WIDTH_PX = 4;
+const BUBBLE_RADIUS_PX = 15;
 
 class Hud {
     private readonly _scene: THREE.Scene;
@@ -32,13 +34,12 @@ class Hud {
     private readonly whiteMeshes: THREE.Mesh[];
     private readonly blackMeshes: THREE.Mesh[];
     private readonly pieceTypes: HivePieceType[];
-    private readonly pieceCountElements: HTMLParagraphElement[];
     private readonly marker: THREE.Mesh;
-    private readonly locations: HexVector[];
-    private grid: HexGrid;
-    private selected: HivePieceType | null;
+    private readonly container: THREE.Mesh;
+    private readonly moveIndicator: HTMLElement;
+    private readonly bubbleElements: Record<HivePieceType, HTMLElement | null>;
+    private selected: HivePieceType | null = null;
 
-    private tile0Location = new THREE.Vector3();
     private pieceCounts: Record<HivePieceType, number> = {
         [HivePieceType.QueenBee]: 0,
         [HivePieceType.SoldierAnt]: 0,
@@ -49,40 +50,25 @@ class Hud {
         [HivePieceType.Mosquito]: 0,
     };
     private playerColor: HiveColor = HiveColor.Black;
+    private playerToMove: HiveColor = HiveColor.Black;
 
     public constructor() {
         this._scene = new THREE.Scene();
         this._camera = new THREE.OrthographicCamera(-5, 5, 5 * window.innerHeight / window.innerWidth, -5 * window.innerHeight / window.innerWidth);
         this._camera.position.z = 5;
-        this.selected = null;
-
-        this.locations = [
-            new HexVector(0, 0),
-            new HexVector(0, 1),
-            new HexVector(-1, 2),
-            new HexVector(-1, 3),
-            new HexVector(-2, 4),
-            new HexVector(-2, 5),
-            new HexVector(-3, 6),
-        ];
 
         this.marker = new THREE.Mesh(
             new THREE.ShapeGeometry(HEXAGON_SHAPE.clone()),
-            new THREE.MeshBasicMaterial({color: 0xff0000})
+            new THREE.MeshBasicMaterial({color: 0x474545})
         );
-        this.marker.rotateZ(1 / 12 * 2 * Math.PI);
 
-        this.pieceCountElements = new Array(7).fill(0).map(_ => document.createElement('p'));
-        this.pieceCountElements.forEach((e, i) => {
-            if (i % 2 == 0) {
-                e.style.transform = 'translate(calc(-100% - 30px), -50%)';
-            } else {
-                e.style.transform = 'translate(30px, -50%)';
-            }
-            e.style.position = 'absolute';
-            e.style.display = 'block';
-            document.body.appendChild(e)
-        });
+        this.container = new THREE.Mesh(
+            new THREE.PlaneGeometry(),
+            new THREE.MeshBasicMaterial({color: 0x353232})
+        );
+
+        this.moveIndicator = document.createElement('div');
+        this.moveIndicator.classList.add('hud-move-indicator');
 
         this.whiteMeshes = [
             WHITE_QUEEN_BEE.clone(),
@@ -104,6 +90,10 @@ class Hud {
             BLACK_MOSQUITO.clone(),
         ];
 
+        for (const mesh of [this.whiteMeshes, this.blackMeshes].flat()) {
+            mesh.rotateY((1 / 12) * 2 * Math.PI);
+        }
+
         this.pieceTypes = [
             HivePieceType.QueenBee,
             HivePieceType.SoldierAnt,
@@ -114,7 +104,16 @@ class Hud {
             HivePieceType.Mosquito,
         ];
 
-        this.grid = new HexGrid((TILE_WIDTH_PX + TILE_GAP_PX) * 10 / window.innerWidth);
+        this.bubbleElements = {
+            [HivePieceType.QueenBee]: null,
+            [HivePieceType.SoldierAnt]: null,
+            [HivePieceType.Spider]: null,
+            [HivePieceType.Grasshopper]: null,
+            [HivePieceType.Beetle]: null,
+            [HivePieceType.Ladybug]: null,
+            [HivePieceType.Mosquito]: null,
+        };
+
         this.onResize();
     }
 
@@ -122,55 +121,67 @@ class Hud {
      * Return true if the click hit something in the hud.
      */
     public onMouseDown(e: MouseEvent, _: MouseState): boolean {
-        const hudPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
         const raycaster = new THREE.Raycaster();
-        const clicked = new THREE.Vector2(
+        const clickedNdc = new THREE.Vector2(
             2 * e.clientX / window.innerWidth - 1,
             -2 * e.clientY / window.innerHeight + 1,
         );
-        raycaster.setFromCamera(clicked, this._camera);
-        const clickedWorld = new THREE.Vector3();
-        raycaster.ray.intersectPlane(hudPlane, clickedWorld);
-        clickedWorld.sub(this.tile0Location);
-        const hex = this.grid.euclideanToHex(new THREE.Vector2(clickedWorld.x, clickedWorld.y));
-        const found = this.locations.findIndex(v => v.equals(hex));
-        if (found >= 0) {
-            this.selected = this.pieceTypes[found];
-            const placeMarker = this.grid.hexToEuclidean(hex);
-            placeMarker.add(this.tile0Location);
-            this.marker.position.set(placeMarker.x, placeMarker.y, 0);
-            this._scene.add(this.marker);
-            return true;
-        } else {
-            return false;
+        raycaster.setFromCamera(clickedNdc, this._camera);
+
+        let i = 0;
+        for (const mesh of this.coloredMeshes()) {
+            if (this.pieceCounts[this.pieceTypes[i]] === 0) {
+                i++;
+                continue;
+            }
+
+            const intersections = raycaster.intersectObject(mesh);
+
+            if (intersections.length > 0) {
+                if (i < this.pieceTypes.length) {
+                    this.selected = this.pieceTypes[i];
+                    this.marker.position.copy(mesh.position);
+                    mesh.position.z = 0;
+                    this._scene.add(this.marker);
+                    return true;
+                }
+            }
+
+            i++;
         }
+
+        {
+            const intersections = raycaster.intersectObject(this.container);
+
+            if (intersections.length > 0) {
+                this.onClickAway();
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public onClickAway(): void {
-        this._scene.remove(this.marker);
-        this.selected = null;
+        if (this.selected != null) {
+            this._scene.remove(this.marker);
+            this.selected = null;
+        }
     }
 
     public onResize() {
-        this.grid = new HexGrid((TILE_WIDTH_PX + TILE_GAP_PX) * 10 / window.innerWidth);
         this._camera.top = 5 * window.innerHeight / window.innerWidth;
         this._camera.bottom = -5 * window.innerHeight / window.innerWidth;
         this._camera.updateProjectionMatrix();
-        this.placeMeshesAndPieceCounts(this.coloredMeshes());
-        this.marker.scale.set(1, 1, 1);
-        this.marker.scale.multiplyScalar(
+        this.placeMeshesAndPieceCounts();
+        this.marker.scale.setScalar(
             ((TILE_WIDTH_PX + 2 * TILE_GAP_PX) * 10 / window.innerWidth) / (2 * RADIUS)
         );
-        if (this.selected != null) {
-            const placeMarker = this.grid.hexToEuclidean(this.locations[this.pieceTypes.indexOf(this.selected)]);
-            placeMarker.add(this.tile0Location);
-            this.marker.position.set(placeMarker.x, placeMarker.y, 0);
-        }
     }
 
     public update() {
         this._scene.clear();
-        this.placeMeshesAndPieceCounts(this.coloredMeshes());
+        this.placeMeshesAndPieceCounts();
 
         if (this.selected != null) {
             this._scene.add(this.marker);
@@ -185,8 +196,10 @@ class Hud {
     }
 
     public clearDomElements(): void {
-        for (const e of this.pieceCountElements) {
-            document.body.removeChild(e);
+        for (const e of Object.values(this.bubbleElements)) {
+            if (e != null) {
+                document.body.removeChild(e);
+            }
         }
     }
 
@@ -195,9 +208,15 @@ class Hud {
     }
 
     public setPlayerColor(color: HiveColor) {
-        this.playerColor = color;
-        this._scene.clear();
-        this.placeMeshesAndPieceCounts(this.coloredMeshes())
+        if (color !== this.playerColor) {
+            this.playerColor = color;
+            this._scene.clear();
+            this.placeMeshesAndPieceCounts()
+        }
+    }
+
+    public setPlayerToMove(color: HiveColor) {
+        this.playerToMove = color;
     }
 
     public get scene(): THREE.Scene {
@@ -219,40 +238,139 @@ class Hud {
         }
     }
 
-    private placeMeshesAndPieceCounts(meshes: THREE.Mesh[]): void {
-        this.tile0Location = new THREE.Vector3(
-            2 * (TILE_0_LEFT_PX / window.innerWidth) - 1,
-            -2 * (TILE_0_TOP_PX / window.innerHeight) + 1,
-            0
-        );
-        this.tile0Location.applyMatrix4(this._camera.projectionMatrixInverse);
-        this.tile0Location.setZ(0);
+    private placeMeshesAndPieceCounts(): void {
+        // Place tiles
+        const tileHeight = 2 * RADIUS;
+        const numSpaces = this.pieceTypes.length;
+        const yUnit = new THREE.Vector3(0, 1, 0);
+        yUnit.applyMatrix4(this._camera.projectionMatrixInverse)
+        const worldToNdcYScale = yUnit.y;
+        const xUnit = new THREE.Vector3(1, 0, 0);
+        xUnit.applyMatrix4(this._camera.projectionMatrixInverse);
+        const worldToNdcXScale = xUnit.x;
+        const worldGap = TILE_GAP_PX / window.innerHeight * worldToNdcYScale;
+        const gapSpace = worldGap * (numSpaces + 1);
+        const tileSpace = this._camera.top - this._camera.bottom - gapSpace;
+        const spacePerTile = tileSpace / numSpaces;
 
-        for (let i = 0; i < meshes.length; i++) {
-            const position = this.grid.hexToEuclidean(this.locations[i]);
-            meshes[i].position.set(position.x, position.y, 0);
-            meshes[i].position.add(this.tile0Location);
-            const scale = TILE_WIDTH_PX * 5 / (window.innerWidth * RADIUS);
-            meshes[i].scale.set(scale, scale, scale);
-            this._scene.add(meshes[i]);
-        }
+        const newRadius = spacePerTile / 2;
+        const outerRadius = newRadius * 2 / Math.sqrt(3);
 
-        for (let i = 0; i < this.pieceCountElements.length; i++) {
-            let hex: HexVector;
-            if (i % 2 == 0) {
-                hex = this.locations[i].add(new HexVector(1, 0));
+        const worldHorizontalPadding = HORIZONTAL_PADDING_PX / window.innerWidth * worldToNdcXScale;
+        const x = this._camera.left + worldHorizontalPadding + outerRadius;
+        const yStart = this._camera.top - (worldGap + newRadius);
+
+        this.coloredMeshes().forEach((mesh, i) => {
+            if (this.pieceCounts[this.pieceTypes[i]] > 0) {
+                mesh.position.set(x, yStart - (spacePerTile + worldGap) * i, 0);
+                mesh.scale.setScalar(spacePerTile / tileHeight);
+                this._scene.add(mesh);
             } else {
-                hex = this.locations[i].add(new HexVector(-1, 0));
+                // render empty tile square to show something is missing
+                const mesh = new THREE.Mesh(
+                    new THREE.ShapeGeometry(HEXAGON_SHAPE.clone()),
+                    new THREE.MeshBasicMaterial({ color: 0x252323 })
+                );
+                mesh.position.set(x, yStart - (spacePerTile + worldGap) * i, 0);
+                mesh.scale.setScalar(spacePerTile / tileHeight);
+                this._scene.add(mesh);
             }
+        });
 
-            const location2d = this.grid.hexToEuclidean(hex).add(this.tile0Location);
-            const location3d = new THREE.Vector3(location2d.x, location2d.y, 0);
-            location3d.applyMatrix4(this._camera.projectionMatrix);
+        // Place bubble meshes and html elements
+        for (let i = 0; i < this.pieceTypes.length; i++) {
+            if (this.pieceCounts[this.pieceTypes[i]] > 1) {
+                const mesh = new THREE.Mesh(
+                    new THREE.ShapeGeometry(HEXAGON_SHAPE.clone()),
+                    new THREE.MeshBasicMaterial({ color: 0xffffff })
+                );
 
-            this.pieceCountElements[i].style.left = `${window.innerWidth * (.5 * location3d.x + .5)}px`;
-            this.pieceCountElements[i].style.top = `${window.innerHeight * (-.5 * location3d.y + .5)}px`;
-            this.pieceCountElements[i].textContent = String(this.pieceCounts[this.pieceTypes[i]]);
+                const tilePosition = new THREE.Vector2(x, yStart - (spacePerTile + worldGap) * i);
+                const bubblePosition = tilePosition
+                    .clone()
+                    .add(new THREE.Vector2(outerRadius, 0))
+                    .rotateAround(tilePosition, 45 * Math.PI / 180);
+
+                const bubbleRadiusNdc = new THREE.Vector3(BUBBLE_RADIUS_PX * 2 / window.innerWidth, 0, 0);
+                const bubbleRadiusWorld = bubbleRadiusNdc
+                    .clone()
+                    .applyMatrix4(this._camera.projectionMatrixInverse);
+
+                mesh.scale.setScalar(bubbleRadiusWorld.x);
+                mesh.position.set(bubblePosition.x, bubblePosition.y, 1);
+
+                const bubblePosition3d = new THREE.Vector3(bubblePosition.x, bubblePosition.y, 0);
+                bubblePosition3d.applyMatrix4(this._camera.projectionMatrix);
+                const screenPosition = new THREE.Vector2();
+                ndcToScreen(bubblePosition3d, screenPosition);
+
+                if (this.bubbleElements[this.pieceTypes[i]] == null) {
+                    const element = document.createElement('span');
+                    element.classList.add('hud-bubble-text');
+                    this.bubbleElements[this.pieceTypes[i]] = element;
+                    document.body.appendChild(element);
+                }
+
+                this.bubbleElements[this.pieceTypes[i]]!.textContent = `x${this.pieceCounts[this.pieceTypes[i]]}`;
+                this.bubbleElements[this.pieceTypes[i]]!.style.left = `${screenPosition.x}px`;
+                this.bubbleElements[this.pieceTypes[i]]!.style.top = `${screenPosition.y}px`;
+
+                this._scene.add(mesh);
+            } else if (this.bubbleElements[this.pieceTypes[i]] != null) {
+                document.body.removeChild(this.bubbleElements[this.pieceTypes[i]] as HTMLElement);
+                this.bubbleElements[this.pieceTypes[i]] = null;
+            }
         }
+
+        // Place outer container
+        const containerLeft = this._camera.left;
+        const containerRight = this._camera.left + 2 * worldHorizontalPadding + 2 * outerRadius;
+        const containerTop = this._camera.top;
+        const containerBottom = this._camera.bottom;
+
+        this.container.geometry = new THREE.PlaneGeometry(
+                containerRight - containerLeft,
+                containerTop - containerBottom,
+        );
+        this.container.position.set(
+            (containerLeft + containerRight) / 2,
+            (containerTop + containerBottom) / 2,
+            -1
+        );
+        this._scene.add(this.container);
+
+        // Place/update move indicator
+        if (this.playerToMove === HiveColor.Black) {
+            this.moveIndicator.textContent = 'Black to Move';
+            if (this.moveIndicator.classList.contains('white')) {
+                this.moveIndicator.classList.remove('white');
+            }
+            this.moveIndicator.classList.remove('black');
+        } else {
+            this.moveIndicator.textContent = 'White to Move';
+            if (this.moveIndicator.classList.contains('black')) {
+                this.moveIndicator.classList.remove('black');
+            }
+            this.moveIndicator.classList.remove('white');
+        }
+
+        const screen = new THREE.Vector2();
+        const moveIndicatorXLoc = new THREE.Vector3(containerRight, 0, 0);
+        moveIndicatorXLoc.applyMatrix4(this._camera.projectionMatrix);
+        ndcToScreen(moveIndicatorXLoc, screen);
+        this.moveIndicator.style.left = `${screen.x}px`;
+        this.moveIndicator.style.top = `${MOVE_INDICATOR_PADDING_TOP_PX}px`;
+
+        if (!document.body.contains(this.moveIndicator)) {
+            document.body.appendChild(this.moveIndicator);
+        }
+
+        // Update the marker's position and scale
+        const markerWidthNdc = new THREE.Vector2(MARKER_WIDTH_PX * 2 / window.innerWidth);
+        const markerWorld = new THREE.Vector3(markerWidthNdc.x, markerWidthNdc.y, 0);
+        markerWorld.applyMatrix4(this._camera.projectionMatrixInverse);
+        const markerWidthWorld = markerWorld.x;
+        this.marker.scale.setScalar((newRadius + markerWidthWorld) / RADIUS);
     }
 }
 

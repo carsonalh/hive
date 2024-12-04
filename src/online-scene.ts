@@ -53,7 +53,6 @@ export default class OnlineScene implements GameplayScene {
     }
 
     private onReceiveMove(move: Move): void {
-        console.log('received an opponent move')
         switch (move.moveType) {
         case "PLACE":
             this.hiveScene.placePiece(move.pieceType, move.position);
@@ -89,6 +88,7 @@ export default class OnlineScene implements GameplayScene {
             pieceCounts[p] = count;
         }
 
+        this.hud.setPlayerToMove(this.hiveScene.game.colorToMove());
         this.hud.setPlayerColor(this.playerColor);
 
         this.hud.setPieceCounts(pieceCounts);
