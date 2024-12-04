@@ -52,13 +52,12 @@ export default class LocalScene implements GameplayScene {
                 const hex = this.hiveScene.getClickedTile(e);
                 let success = false;
 
-                console.log(`clicked on main scene, at tile clicked on ${hex.toString()}`)
-                console.log(`this.hiveScene.selected = ${this.hiveScene.selected}`);
-
                 if (this.hiveScene.selected != null) {
                     success = this.hiveScene.movePiece(this.hiveScene.selected, hex);
                 } else if (this.hud.selectedPieceType != null) {
                     success = this.hiveScene.placePiece(this.hud.selectedPieceType, hex);
+                } else {
+                    this.hiveScene.select(hex);
                 }
 
                 this.hud.onClickAway();
