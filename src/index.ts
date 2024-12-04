@@ -37,7 +37,10 @@ async function onGameplayModeChange(mode: GameplayMode) {
     }
 }
 
-const renderer = new THREE.WebGLRenderer({alpha: true});
+const renderer = new THREE.WebGLRenderer({
+    alpha: true,
+    antialias: true,
+});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.autoClear = false;
 renderer.shadowMap.enabled = true;
