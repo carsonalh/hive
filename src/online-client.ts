@@ -60,7 +60,6 @@ export default class OnlineClient {
         });
 
         socket.addEventListener('message', event => {
-            console.log(`Calling onMessage with ${event.data}`)
             this.onMessage(event.data);
         });
     }

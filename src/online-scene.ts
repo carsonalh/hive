@@ -8,8 +8,8 @@ import OnlineClient, {Move} from "./online-client";
 import {GameplayScene} from "./gameplay-scene";
 
 export default class OnlineScene implements GameplayScene {
-    private loadingModal: HTMLElement;
     private joiningModal: HTMLElement;
+    private disconnectedModal: HTMLElement;
     private displayedModal: HTMLElement | null = null;
     private client: OnlineClient;
     private playerColor: HiveColor = HiveColor.Black;
@@ -18,8 +18,8 @@ export default class OnlineScene implements GameplayScene {
         const hiveScene = await HiveScene.createWithBlankGame();
         const onlineScene = new OnlineScene(hiveScene, new Hud());
 
-        onlineScene.displayedModal = onlineScene.loadingModal;
-        document.body.appendChild(onlineScene.loadingModal);
+        onlineScene.displayedModal = onlineScene.joiningModal;
+        document.body.appendChild(onlineScene.joiningModal);
 
         return onlineScene;
     }
@@ -28,22 +28,36 @@ export default class OnlineScene implements GameplayScene {
         this.client = new OnlineClient('localhost:8080', {
             connectHandler: this.onConnect.bind(this),
             receiveMoveHandler: this.onReceiveMove.bind(this),
+            disconnectHandler: this.onOpponentDisconnect.bind(this)
         });
 
         this.client.joinAnonymousGame();
 
-        this.loadingModal = document.createElement('div');
-        this.loadingModal.classList.add('modal-loading');
+        {
+            this.joiningModal = document.createElement('div');
+            this.joiningModal.classList.add('online-modal', 'online-modal-joining');
+            const p = document.createElement('p');
+            p.textContent = 'Waiting for another player to join this game...';
+            this.joiningModal.appendChild(p);
+        }
 
-        this.joiningModal = document.createElement('div');
-        const p = document.createElement('p');
-        p.textContent = 'Waiting for another player to join this game...';
-        this.joiningModal.appendChild(p);
+        {
+            this.disconnectedModal = document.createElement('div');
+            this.disconnectedModal.classList.add('online-modal', 'online-modal-disconnected');
 
-        const paragraph = document.createElement('p');
-        paragraph.textContent = 'Loading';
+            const button = document.createElement('button');
+            button.textContent = 'Ok';
+            button.addEventListener('mousedown', () => {
+                this.hideModal();
+            });
 
-        this.loadingModal.appendChild(paragraph);
+            const p = document.createElement('p');
+            p.textContent = 'Your opponent disconnected from the game';
+
+            this.disconnectedModal.appendChild(p);
+            this.disconnectedModal.appendChild(button);
+        }
+
     }
 
     private onConnect(color: HiveColor): void {
@@ -54,13 +68,21 @@ export default class OnlineScene implements GameplayScene {
 
     private onReceiveMove(move: Move): void {
         switch (move.moveType) {
-        case "PLACE":
-            this.hiveScene.placePiece(move.pieceType, move.position);
-            break;
-        case "MOVE":
-            this.hiveScene.movePiece(move.from, move.to);
-            break;
+            case "PLACE":
+                this.hiveScene.placePiece(move.pieceType, move.position);
+                break;
+            case "MOVE":
+                this.hiveScene.movePiece(move.from, move.to);
+                break;
         }
+
+        this.updateHud();
+    }
+
+    private onOpponentDisconnect(): void {
+        this.hideModal();
+        document.body.append(this.disconnectedModal);
+        this.displayedModal = this.disconnectedModal;
     }
 
     private hideModal(): void {
