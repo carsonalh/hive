@@ -139,10 +139,15 @@ class Hud {
 
             if (intersections.length > 0) {
                 if (i < this.pieceTypes.length) {
-                    this.selected = this.pieceTypes[i];
-                    this.marker.position.copy(mesh.position);
-                    mesh.position.z = 0;
-                    this._scene.add(this.marker);
+                    if (this.pieceTypes[i] === this.selectedPieceType) {
+                        this.onClickAway();
+                    } else {
+                        this.selected = this.pieceTypes[i];
+                        this.marker.position.copy(mesh.position);
+                        mesh.position.z = 0;
+                        this._scene.add(this.marker);
+                    }
+
                     return true;
                 }
             }
