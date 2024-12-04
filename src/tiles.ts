@@ -79,24 +79,24 @@ namespace pbr {
     export const WHITE_BACKGROUND = 0xffec8c;
     export const BLACK_BACKGROUND = 0x000000;
     export const QUEEN_BEE_COLOUR = 0xff6f00;
-    export const SOLDIER_ANT_COLOUR = 0x40a0f5;
-    export const BEETLE_COLOUR = 0x7e1abd;
-    export const SPIDER_COLOUR = 0x7d502e;
-    export const GRASSHOPPER_COLOUR = 0x087a00;
-    export const LADYBUG_COLOUR = 0xff0000;
+    export const SOLDIER_ANT_COLOUR = 0x3098F4;
+    export const BEETLE_COLOUR = 0xA646E3;
+    export const SPIDER_COLOUR = 0x551B0B;
+    export const GRASSHOPPER_COLOUR = 0x20F312;
+    export const LADYBUG_COLOUR = 0xA40006;
     export const MOSQUITO_COLOUR = 0x888888;
 }
 
 namespace basic {
     export const WHITE_BACKGROUND = 0xEDE8D0;
-    export const BLACK_BACKGROUND = 0x000000;
-    export const QUEEN_BEE_COLOUR = 0xFFFF00;
-    export const SOLDIER_ANT_COLOUR = 0x40a0f5;
-    export const BEETLE_COLOUR = 0x7e1abd;
-    export const SPIDER_COLOUR = 0x7d502e;
-    export const GRASSHOPPER_COLOUR = 0x61ad15;
-    export const LADYBUG_COLOUR = 0xff0000;
-    export const MOSQUITO_COLOUR = 0x888888;
+    export const BLACK_BACKGROUND = 0x404040;
+    export const QUEEN_BEE_COLOUR = 0xFDCF00;
+    export const SOLDIER_ANT_COLOUR = 0x87C3F6;
+    export const BEETLE_COLOUR = 0xBFA1ED;
+    export const SPIDER_COLOUR = 0xC48120;
+    export const GRASSHOPPER_COLOUR = 0x7FE262;
+    export const LADYBUG_COLOUR = 0xE61717;
+    export const MOSQUITO_COLOUR = 0xC8C8C8;
 }
 
 export const WHITE_QUEEN_BEE = createTileBasic(basic.WHITE_BACKGROUND, basic.QUEEN_BEE_COLOUR, 'textures/queenbee.png');
@@ -218,18 +218,3 @@ export async function createTile(color: HiveColor, pieceType: HivePieceType): Pr
         }
     }
 }
-
-// export const WHITE_QUEEN_BEE = createTilePbr(WHITE_BACKGROUND, QUEEN_BEE_COLOUR, 'textures/queenbee.png');
-// export const WHITE_SOLDIER_ANT = createTilePbr(WHITE_BACKGROUND, SOLDIER_ANT_COLOUR, 'textures/soldierant.png');
-// export const WHITE_BEETLE = createTilePbr(WHITE_BACKGROUND, BEETLE_COLOUR, 'textures/beetle.png');
-// export const WHITE_SPIDER = createTilePbr(WHITE_BACKGROUND, SPIDER_COLOUR, 'textures/spider.png');
-// export const WHITE_GRASSHOPPER = createTilePbr(WHITE_BACKGROUND, GRASSHOPPER_COLOUR, 'textures/grasshopper.png');
-// export const WHITE_LADYBUG = createTilePbr(WHITE_BACKGROUND, LADYBUG_COLOUR, 'textures/ladybug.png');
-// export const WHITE_MOSQUITO = createTilePbr(WHITE_BACKGROUND, MOSQUITO_COLOUR, 'textures/mosquito.png');
-// export const BLACK_QUEEN_BEE = createTilePbr(BLACK_BACKGROUND, QUEEN_BEE_COLOUR, 'textures/queenbee.png');
-// export const BLACK_SOLDIER_ANT = createTilePbr(BLACK_BACKGROUND, SOLDIER_ANT_COLOUR, 'textures/soldierant.png');
-// export const BLACK_BEETLE = createTilePbr(BLACK_BACKGROUND, BEETLE_COLOUR, 'textures/beetle.png');
-// export const BLACK_SPIDER = createTilePbr(BLACK_BACKGROUND, SPIDER_COLOUR, 'textures/spider.png');
-// export const BLACK_GRASSHOPPER = createTilePbr(BLACK_BACKGROUND, GRASSHOPPER_COLOUR, 'textures/grasshopper.png');
-// export const BLACK_LADYBUG = createTilePbr(BLACK_BACKGROUND, LADYBUG_COLOUR, 'textures/ladybug.png');
-// export const BLACK_MOSQUITO = createTilePbr(BLACK_BACKGROUND, MOSQUITO_COLOUR, 'textures/mosquito.png');
