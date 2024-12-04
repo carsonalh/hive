@@ -138,6 +138,8 @@ export default class OnlineScene implements GameplayScene {
     }
 
     public cleanup() {
+        // TODO send disconnect message to the server
+        this.hideModal();
         this.hud.clearDomElements();
     }
 

@@ -1,3 +1,5 @@
+import {LEFT_BUTTON} from "./constants";
+
 export enum GameplayMode {
     None,
     Online,
@@ -35,19 +37,23 @@ export default class NavigationOverlay {
             playOnlineButton.textContent = 'Play Online';
             playOnlineButton.classList.add('navigation-button');
 
-            playOnlineButton.onclick = () => {
-                this.toOnlineGameplayMode();
-                this.transition(this.gameplayElements);
-            };
+            playOnlineButton.addEventListener('mousedown', e => {
+                if (e.button === LEFT_BUTTON) {
+                    this.toOnlineGameplayMode();
+                    this.transition(this.gameplayElements);
+                }
+            });
 
             const playLocallyButton = document.createElement('button');
             playLocallyButton.textContent = 'Local PvP';
             playLocallyButton.classList.add('navigation-button');
 
-            playLocallyButton.onclick = () => {
-                this.toLocalGameplayMode();
-                this.transition(this.gameplayElements);
-            };
+            playLocallyButton.addEventListener('mousedown', e => {
+                if (e.button === LEFT_BUTTON) {
+                    this.toLocalGameplayMode();
+                    this.transition(this.gameplayElements);
+                }
+            });
 
             mainMenu.appendChild(title);
             mainMenu.appendChild(playOnlineButton);
@@ -62,9 +68,11 @@ export default class NavigationOverlay {
             backToMainMenuButton.classList.add('navigation-button', 'navigation-button-back');
             backToMainMenuButton.textContent = 'Exit Game';
 
-            backToMainMenuButton.onclick = () => {
-                this.transition(this.mainMenuElements);
-            };
+            backToMainMenuButton.addEventListener('mousedown', e => {
+                if (e.button === LEFT_BUTTON) {
+                    this.transition(this.mainMenuElements);
+                }
+            })
 
             this.gameplayElements = [backToMainMenuButton];
         }
