@@ -123,16 +123,19 @@ export default class OnlineScene implements GameplayScene {
                 this.hiveScene.onClickAway();
             } else {
                 const hit = this.hiveScene.getClickedTile(e);
+                const isOurTurn = this.playerColor === this.hiveScene.game.colorToMove();
 
                 if (this.hud.selectedPieceType != null) {
-                    if (this.hiveScene.placePiece(this.hud.selectedPieceType, hit)) {
+                    if (isOurTurn && this.hiveScene.placePiece(this.hud.selectedPieceType, hit)) {
                         this.client.placePiece(this.hud.selectedPieceType, hit);
                         this.updateHud();
                     }
                 } else if (this.hiveScene.selected != null) {
-                    if (this.hiveScene.movePiece(this.hiveScene.selected, hit)) {
+                    if (isOurTurn && this.hiveScene.movePiece(this.hiveScene.selected, hit)) {
                         this.client.movePiece(this.hiveScene.selected, hit);
                     }
+                } else {
+                    this.hiveScene.select(hit);
                 }
 
                 this.hud.onClickAway();
