@@ -67,13 +67,19 @@ export default class OnlineScene implements GameplayScene {
     }
 
     private onReceiveMove(move: Move): void {
+        let success = false;
+
         switch (move.moveType) {
             case "PLACE":
-                this.hiveScene.placePiece(move.pieceType, move.position);
+                success = this.hiveScene.placePiece(move.pieceType, move.position);
                 break;
             case "MOVE":
-                this.hiveScene.movePiece(move.from, move.to);
+                success = this.hiveScene.movePiece(move.from, move.to);
                 break;
+        }
+
+        if (!success) {
+            throw new Error('client received an illegal move from the server; very bad');
         }
 
         this.updateHud();
