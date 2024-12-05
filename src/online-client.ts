@@ -123,7 +123,6 @@ export default class OnlineClient {
             case "PLAY_MOVE":
                 switch (response.move.moveType) {
                     case "MOVE": {
-                        console.log('dispatching movement from server');
                         const from = new HexVector(response.move.movement.from.q, response.move.movement.from.r);
                         const to = new HexVector(response.move.movement.to.q, response.move.movement.to.r);
                         this.receiveMoveHandler({
@@ -134,8 +133,17 @@ export default class OnlineClient {
                         break;
                     }
                     case "PLACE": {
-                        console.log('dispatching placement from server');
-                        const pieceType: HivePieceType = response.move.placement.pieceType;
+                        const internalPieceType: number = response.move.placement.pieceType;
+                        let pieceType: HivePieceType | null = null;
+                        for (const [key, value] of Object.entries(HiveGame.internalPieceTypeMap())) {
+                            if (internalPieceType === value) {
+                                pieceType = Number(key);
+                                break;
+                            }
+                        }
+                        if (pieceType == null) {
+                            throw new Error('did not recognise piece type sent from server');
+                        }
                         const position = new HexVector(response.move.placement.position.q, response.move.placement.position.r);
                         this.receiveMoveHandler({
                             moveType: "PLACE",
