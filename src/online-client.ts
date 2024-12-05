@@ -1,3 +1,4 @@
+import {SERVER_HOSTNAME, WEBSOCKET_HOSTNAME} from 'configuration';
 import {HiveColor, HiveGame, HivePieceType} from "./hive-game";
 import {HexVector} from "./hex-grid";
 
@@ -28,18 +29,18 @@ export default class OnlineClient {
     private readonly connectHandler: (color: HiveColor) => unknown;
     private readonly disconnectHandler: () => unknown;
 
-    public constructor(private host: string, options?: OnlineClientOptions) {
+    public constructor(options?: OnlineClientOptions) {
         this.receiveMoveHandler = options?.receiveMoveHandler ?? (() => {});
         this.connectHandler = options?.connectHandler ?? (() => {});
         this.disconnectHandler = options?.disconnectHandler ?? (() => {});
     }
 
     public async joinAnonymousGame(): Promise<void> {
-        const join = await fetch(`http://${this.host}/join`);
+        const join = await fetch(`${SERVER_HOSTNAME}/join`);
         const data = await join.json();
         const token: string = data.token;
 
-        const socket = new WebSocket(`ws://${this.host}/play`);
+        const socket = new WebSocket(`${WEBSOCKET_HOSTNAME}/play`);
 
         socket.addEventListener('open', () => {
             socket.send(JSON.stringify({

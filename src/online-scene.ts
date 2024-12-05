@@ -25,7 +25,7 @@ export default class OnlineScene implements GameplayScene {
     }
 
     private constructor(private hiveScene: HiveScene, private hud: Hud) {
-        this.client = new OnlineClient('localhost:8080', {
+        this.client = new OnlineClient({
             connectHandler: this.onConnect.bind(this),
             receiveMoveHandler: this.onReceiveMove.bind(this),
             disconnectHandler: this.onOpponentDisconnect.bind(this)
