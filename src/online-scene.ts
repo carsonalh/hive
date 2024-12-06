@@ -151,6 +151,7 @@ export default class OnlineScene implements GameplayScene {
 
     public onResize(): void {
         this.hiveScene.onResize();
+        this.hud.onResize();
     }
 
     public onWheel(e: WheelEvent): void {

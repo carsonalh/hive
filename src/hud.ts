@@ -21,7 +21,6 @@ import {MouseState} from "./mouse-state";
 import {RADIUS} from "./constants";
 import {ndcToScreen} from "./util";
 
-const TILE_WIDTH_PX = 100;
 const TILE_GAP_PX = 20;
 const HORIZONTAL_PADDING_PX = 30;
 const MOVE_INDICATOR_PADDING_TOP_PX = 30;
@@ -51,6 +50,7 @@ class Hud {
     };
     private playerColor: HiveColor = HiveColor.Black;
     private playerToMove: HiveColor = HiveColor.Black;
+    private bubbleMeshes: Record<HivePieceType, THREE.Mesh | null>;
 
     public constructor() {
         this._scene = new THREE.Scene();
@@ -105,6 +105,16 @@ class Hud {
         ];
 
         this.bubbleElements = {
+            [HivePieceType.QueenBee]: null,
+            [HivePieceType.SoldierAnt]: null,
+            [HivePieceType.Spider]: null,
+            [HivePieceType.Grasshopper]: null,
+            [HivePieceType.Beetle]: null,
+            [HivePieceType.Ladybug]: null,
+            [HivePieceType.Mosquito]: null,
+        };
+
+        this.bubbleMeshes = {
             [HivePieceType.QueenBee]: null,
             [HivePieceType.SoldierAnt]: null,
             [HivePieceType.Spider]: null,
@@ -179,9 +189,9 @@ class Hud {
         this._camera.bottom = -5 * window.innerHeight / window.innerWidth;
         this._camera.updateProjectionMatrix();
         this.placeMeshesAndPieceCounts();
-        this.marker.scale.setScalar(
-            ((TILE_WIDTH_PX + 2 * TILE_GAP_PX) * 10 / window.innerWidth) / (2 * RADIUS)
-        );
+        // this.marker.scale.setScalar(
+        //     ((TILE_WIDTH_PX + 2 * TILE_GAP_PX) * 10 / window.innerWidth) / (2 * RADIUS)
+        // );
     }
 
     public update() {
@@ -285,10 +295,15 @@ class Hud {
         // Place bubble meshes and html elements
         for (let i = 0; i < this.pieceTypes.length; i++) {
             if (this.pieceCounts[this.pieceTypes[i]] > 1) {
-                const mesh = new THREE.Mesh(
-                    new THREE.ShapeGeometry(HEXAGON_SHAPE.clone()),
-                    new THREE.MeshBasicMaterial({ color: 0xffffff })
-                );
+                const cachedMesh = this.bubbleMeshes[this.pieceTypes[i]];
+                const mesh = cachedMesh != null
+                    ? cachedMesh
+                    : new THREE.Mesh(
+                        new THREE.ShapeGeometry(HEXAGON_SHAPE.clone()),
+                        new THREE.MeshBasicMaterial({ color: 0xffffff })
+                    );
+
+                this.bubbleMeshes[this.pieceTypes[i]] = mesh;
 
                 const tilePosition = new THREE.Vector2(x, yStart - (spacePerTile + worldGap) * i);
                 const bubblePosition = tilePosition
@@ -376,6 +391,14 @@ class Hud {
         markerWorld.applyMatrix4(this._camera.projectionMatrixInverse);
         const markerWidthWorld = markerWorld.x;
         this.marker.scale.setScalar((newRadius + markerWidthWorld) / RADIUS);
+        const piece = this.selectedPieceType;
+        if (piece != null) {
+            const tilePosition = this.pieceTypes.indexOf(piece);
+            if (tilePosition < 0) {
+                throw new Error('somehow selected a piece type which is not a real piece type');
+            }
+            this.marker.position.copy(this.coloredMeshes()[tilePosition].position);
+        }
     }
 }
 
