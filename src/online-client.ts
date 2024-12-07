@@ -15,49 +15,100 @@ export type Move = {
 export interface OnlineClientOptions {
     receiveMoveHandler?: (move: Move) => unknown;
     connectHandler?: (color: HiveColor) => unknown;
-    disconnectHandler?: () => unknown;
+    connectionCloseHandler?: () => unknown;
+    opponentDisconnectHandler?: () => unknown;
+    opponentReconnectHandler?: () => unknown;
+    gameCompletedHandler?: (won: boolean) => unknown;
 }
 
 export default class OnlineClient {
     private session: {
         token: string,
-        color: HiveColor,
-        socket: WebSocket,
-        nextMove: HiveColor,
+        game: {
+            id: string,
+            socket: WebSocket,
+            color: HiveColor,
+            nextMove: HiveColor,
+        } | null,
     } | null = null;
     private readonly receiveMoveHandler: (move: Move) => unknown;
     private readonly connectHandler: (color: HiveColor) => unknown;
-    private readonly disconnectHandler: () => unknown;
+    private readonly connectionCloseHandler: () => unknown;
+    private readonly opponentDisconnectHandler: () => unknown;
+    private readonly opponentReconnectHandler: () => unknown;
+    private readonly gameCompletedHandler: (won: boolean) => unknown;
 
     public constructor(options?: OnlineClientOptions) {
         this.receiveMoveHandler = options?.receiveMoveHandler ?? (() => {});
         this.connectHandler = options?.connectHandler ?? (() => {});
-        this.disconnectHandler = options?.disconnectHandler ?? (() => {});
+        this.connectionCloseHandler = options?.connectionCloseHandler ?? (() => {});
+        this.opponentDisconnectHandler = options?.opponentDisconnectHandler ?? (() => {});
+        this.opponentReconnectHandler = options?.opponentReconnectHandler ?? (() => {});
+        this.gameCompletedHandler = options?.gameCompletedHandler ?? (() => {});
     }
 
-    public async joinAnonymousGame(): Promise<void> {
-        const join = await fetch(`${SERVER_HOSTNAME}/join`);
-        const data = await join.json();
-        const token: string = data.token;
+    public async join(): Promise<void> {
+        const response = await fetch(`${SERVER_HOSTNAME}/join`);
+        const json = await response.json();
+        this.session = {
+            token: json.token,
+            game: null,
+        };
+    }
 
-        const socket = new WebSocket(`${WEBSOCKET_HOSTNAME}/play`);
+    /**
+     * Returns the id of the created game.
+     */
+    public async createPvpGame(): Promise<string> {
+        if (this.session == null) {
+            throw new Error('cannot create a pvp game before a session has been initialised')
+        }
+
+        const response = await fetch(`${SERVER_HOSTNAME}/hosted-game/new`, {
+            mode: 'cors',
+            credentials: 'include',
+            headers: {
+                'Authorization': `Bearer ${this.session.token}`
+            },
+        });
+        if (response.status !== 200) {
+            throw new Error(`got status ${response.status} from the server trying to create a new hosted game`)
+        }
+        const json = await response.json();
+        const id = json.id as string;
+
+        this.joinPvpGame(id);
+
+        return id;
+    }
+
+    /**
+     * Join a pvp game.
+     * @param id The id of the game to join
+     */
+    public joinPvpGame(id: string): void {
+        if (this.session == null) {
+            throw new Error('cannot join a pvp game without having authenticated first');
+        }
+
+        const socket = new WebSocket(`${WEBSOCKET_HOSTNAME}/hosted-game/play?id=${id}`);
+
+        this.session.game = {
+            id,
+            socket,
+            color: HiveColor.Black,
+            nextMove: HiveColor.Black,
+        };
 
         socket.addEventListener('open', () => {
             socket.send(JSON.stringify({
                 event: 'AUTHENTICATE',
-                token,
+                token: this.session!.token,
             }));
-
-            this.session = {
-                token,
-                socket,
-                color: HiveColor.Black,
-                nextMove: HiveColor.Black,
-            };
         });
 
         socket.addEventListener('close', () => {
-            this.disconnectHandler();
+            this.connectionCloseHandler();
         });
 
         socket.addEventListener('message', event => {
@@ -68,7 +119,12 @@ export default class OnlineClient {
     public placePiece(pieceType: HivePieceType, position: HexVector) {
         const pieceTypeMap = HiveGame.internalPieceTypeMap();
 
-        this.session?.socket.send(JSON.stringify({
+        const game = this.session?.game;
+        if (game == null) {
+            throw new Error('cannot place a piece when no current game is active');
+        }
+
+        game.socket.send(JSON.stringify({
             event: "PLAY_MOVE",
             move: {
                 moveType: "PLACE",
@@ -77,11 +133,16 @@ export default class OnlineClient {
                     position: position.json(),
                 },
             },
-        }));
+        }))
     }
 
     public movePiece(from: HexVector, to: HexVector) {
-        this.session?.socket.send(JSON.stringify({
+        const game = this.session?.game;
+        if (game == null) {
+            throw new Error('cannot place a piece when no current game is active');
+        }
+
+        game.socket.send(JSON.stringify({
             event: "PLAY_MOVE",
             move: {
                 moveType: "MOVE",
@@ -90,13 +151,16 @@ export default class OnlineClient {
                     to: to.json(),
                 },
             },
-        }));
+        }))
+    }
+
+    public close(): void {
+        this.session?.game?.socket.close();
     }
 
     private onMessage(message: string) {
-        console.log('received message from server');
-        if (this.session == null) {
-            throw new Error('invalid state, cannot receive a message while no session is open');
+        if (this.session == null || this.session.game == null) {
+            throw new Error('invalid state, cannot receive a message while no session/game is open');
         }
 
         let response: any;
@@ -116,7 +180,7 @@ export default class OnlineClient {
         switch (response.event) {
             case "CONNECT": {
                 const c: HiveColor = response.connect.color;
-                this.session.color = c;
+                this.session.game.color = c;
                 this.connectHandler(c);
                 break;
             }
@@ -156,8 +220,14 @@ export default class OnlineClient {
                 break;
             case "REJECT_MOVE":
                 throw new Error('Either the server is lying or we gave an illegal move');
+            case "DISCONNECT":
+                this.opponentDisconnectHandler();
+                break;
+            case "RECONNECT":
+                this.opponentReconnectHandler();
+                break;
             case "GAME_COMPLETED":
-                // TODO we should have already figured that the game is completed out, but we have it confirmed on the server side now
+                this.gameCompletedHandler(response.complete.won);
                 break;
         }
     }

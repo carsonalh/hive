@@ -6,20 +6,17 @@ import {MouseState} from "./mouse-state";
 import {LEFT_BUTTON} from "./constants";
 import OnlineClient, {Move} from "./online-client";
 import {GameplayScene} from "./gameplay-scene";
+import OnlineOverlay from "./online-overlay";
 
 export default class OnlineScene implements GameplayScene {
-    private joiningModal: HTMLElement;
-    private disconnectedModal: HTMLElement;
-    private displayedModal: HTMLElement | null = null;
-    private client: OnlineClient;
+    private readonly overlay: OnlineOverlay;
+    private readonly client: OnlineClient;
     private playerColor: HiveColor = HiveColor.Black;
 
     public static async create(): Promise<OnlineScene> {
         const hiveScene = await HiveScene.createWithBlankGame();
         const onlineScene = new OnlineScene(hiveScene, new Hud());
-
-        onlineScene.displayedModal = onlineScene.joiningModal;
-        document.body.appendChild(onlineScene.joiningModal);
+        await onlineScene.client.join();
 
         return onlineScene;
     }
@@ -28,42 +25,18 @@ export default class OnlineScene implements GameplayScene {
         this.client = new OnlineClient({
             connectHandler: this.onConnect.bind(this),
             receiveMoveHandler: this.onReceiveMove.bind(this),
-            disconnectHandler: this.onOpponentDisconnect.bind(this)
+            connectionCloseHandler: this.onOpponentDisconnect.bind(this),
+            opponentReconnectHandler: this.onOpponentReconnect.bind(this),
         });
 
-        this.client.joinAnonymousGame();
-
-        {
-            this.joiningModal = document.createElement('div');
-            this.joiningModal.classList.add('online-modal', 'online-modal-joining');
-            const p = document.createElement('p');
-            p.textContent = 'Waiting for another player to join this game...';
-            this.joiningModal.appendChild(p);
-        }
-
-        {
-            this.disconnectedModal = document.createElement('div');
-            this.disconnectedModal.classList.add('online-modal', 'online-modal-disconnected');
-
-            const button = document.createElement('button');
-            button.textContent = 'Ok';
-            button.addEventListener('mousedown', () => {
-                this.hideModal();
-            });
-
-            const p = document.createElement('p');
-            p.textContent = 'Your opponent disconnected from the game';
-
-            this.disconnectedModal.appendChild(p);
-            this.disconnectedModal.appendChild(button);
-        }
-
+        this.overlay = new OnlineOverlay(this.client);
+        this.overlay.show();
     }
 
     private onConnect(color: HiveColor): void {
         this.playerColor = color;
-        this.hideModal();
         this.updateHud();
+        this.overlay.hide();
     }
 
     private onReceiveMove(move: Move): void {
@@ -86,15 +59,9 @@ export default class OnlineScene implements GameplayScene {
     }
 
     private onOpponentDisconnect(): void {
-        this.hideModal();
-        document.body.append(this.disconnectedModal);
-        this.displayedModal = this.disconnectedModal;
     }
 
-    private hideModal(): void {
-        if (this.displayedModal != null)
-            document.body.removeChild(this.displayedModal);
-        this.displayedModal = null;
+    private onOpponentReconnect(): void {
     }
 
     private updateHud(): void {
@@ -112,8 +79,7 @@ export default class OnlineScene implements GameplayScene {
 
         for (const piece of allPieces) {
             const p = piece as HivePieceType;
-            const count = this.hiveScene.game.getTilesRemaining(this.playerColor, p as HivePieceType);
-            pieceCounts[p] = count;
+            pieceCounts[p] = this.hiveScene.game.getTilesRemaining(this.playerColor, p as HivePieceType);
         }
 
         this.hud.setPlayerToMove(this.hiveScene.game.colorToMove());
@@ -170,8 +136,7 @@ export default class OnlineScene implements GameplayScene {
     }
 
     public cleanup() {
-        // TODO send disconnect message to the server
-        this.hideModal();
+        this.client.close();
         this.hud.clearDomElements();
     }
 
