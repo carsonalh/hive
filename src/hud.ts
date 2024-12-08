@@ -188,10 +188,8 @@ class Hud {
         this._camera.top = 5 * window.innerHeight / window.innerWidth;
         this._camera.bottom = -5 * window.innerHeight / window.innerWidth;
         this._camera.updateProjectionMatrix();
+        this._scene.clear();
         this.placeMeshesAndPieceCounts();
-        // this.marker.scale.setScalar(
-        //     ((TILE_WIDTH_PX + 2 * TILE_GAP_PX) * 10 / window.innerWidth) / (2 * RADIUS)
-        // );
     }
 
     public update() {
