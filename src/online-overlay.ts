@@ -12,8 +12,9 @@ export default class OnlineOverlay {
     private isShown = false;
     private state: OnlineOverlayState;
     private states: Record<OnlineOverlayState, HTMLElement[]>;
+    private client: OnlineClient | null = null
 
-    public constructor(private client: OnlineClient) {
+    public constructor() {
         const container = document.createElement("div");
         container.classList.add('online-overlay-container');
 
@@ -71,7 +72,7 @@ export default class OnlineOverlay {
 
         createPvpButton.addEventListener('mousedown', async e => {
             if (e.button === LEFT_BUTTON) {
-                createPvpDisplay.textContent = await client.createPvpGame();
+                createPvpDisplay.textContent = await this.client!.createPvpGame();
 
                 this.toState(OnlineOverlayState.Create);
             }
@@ -92,7 +93,7 @@ export default class OnlineOverlay {
                 const input = joinPvpInput.value;
 
                 try {
-                    this.client.joinPvpGame(input);
+                    this.client!.joinPvpGame(input);
                 } catch (e) {
                     console.error(e);
                 }
@@ -119,6 +120,10 @@ export default class OnlineOverlay {
         }
 
         this.container = container;
+    }
+
+    public setClient(client: OnlineClient) {
+        this.client = client;
     }
 
     private toState(state: OnlineOverlayState) {

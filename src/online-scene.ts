@@ -9,28 +9,28 @@ import {GameplayScene} from "./gameplay-scene";
 import OnlineOverlay from "./online-overlay";
 
 export default class OnlineScene implements GameplayScene {
-    private readonly overlay: OnlineOverlay;
     private readonly client: OnlineClient;
     private playerColor: HiveColor = HiveColor.Black;
 
     public static async create(): Promise<OnlineScene> {
+        const overlay = new OnlineOverlay();
+        overlay.show();
+
         const hiveScene = await HiveScene.createWithBlankGame();
-        const onlineScene = new OnlineScene(hiveScene, new Hud());
+        const onlineScene = new OnlineScene(hiveScene, new Hud(), overlay);
+        overlay.setClient(onlineScene.client);
         await onlineScene.client.join();
 
         return onlineScene;
     }
 
-    private constructor(private hiveScene: HiveScene, private hud: Hud) {
+    private constructor(private hiveScene: HiveScene, private hud: Hud, private overlay: OnlineOverlay) {
         this.client = new OnlineClient({
             connectHandler: this.onConnect.bind(this),
             receiveMoveHandler: this.onReceiveMove.bind(this),
             connectionCloseHandler: this.onOpponentDisconnect.bind(this),
             opponentReconnectHandler: this.onOpponentReconnect.bind(this),
         });
-
-        this.overlay = new OnlineOverlay(this.client);
-        this.overlay.show();
     }
 
     private onConnect(color: HiveColor): void {
