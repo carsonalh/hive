@@ -15,25 +15,58 @@ export default class OnlineOverlay {
 
     public constructor(private client: OnlineClient) {
         const container = document.createElement("div");
+        container.classList.add('online-overlay-container');
 
         const createPvpButton = document.createElement("button");
         createPvpButton.textContent = 'Create PvP';
-        const createPvpDisplay = document.createElement("div");
 
-        const joinSubmitButton = document.createElement("button");
-        joinSubmitButton.textContent = 'Submit';
+        const createPvpDisplay = document.createElement("div");
+        const createPvpParagraph = document.createElement("p");
+        createPvpParagraph.textContent = 'Give this code to another player to play a game with them...';
+
         const joinPvpButton = document.createElement("button");
         joinPvpButton.textContent = 'Join PvP';
+
+        const joinSubmitButton = document.createElement("button");
+        joinSubmitButton.textContent = 'Join';
+        const joinBackButton = document.createElement('button');
+        joinBackButton.textContent = 'Back';
+        const joinHexButtonContainer = document.createElement('div');
+        joinHexButtonContainer.classList.add('hex-button-container');
+        joinHexButtonContainer.appendChild(joinSubmitButton);
+        joinHexButtonContainer.appendChild(joinBackButton);
+
+        const joinParagraph = document.createElement('p');
+        joinParagraph.textContent = 'Enter a game\'s code to join...';
         const joinPvpInput = document.createElement("input");
         joinPvpInput.type = 'text';
+        joinPvpInput.placeholder = 'Code';
 
-        const backButton = document.createElement('button');
-        backButton.textContent = 'Back';
+        const createBackButton = document.createElement('button');
+        createBackButton.textContent = 'Back';
+        createBackButton.classList.add('hex-button');
+
+        const joinContainer = document.createElement('main');
+        joinContainer.classList.add('join');
+        joinContainer.appendChild(joinPvpInput);
+        joinContainer.appendChild(joinHexButtonContainer);
+
+        const createContainer = document.createElement('main');
+        createContainer.classList.add('create');
+        createContainer.appendChild(createPvpParagraph);
+        createContainer.appendChild(createPvpDisplay);
+        createContainer.appendChild(createBackButton);
+
+        const hostedGameContainer = document.createElement('div');
+        hostedGameContainer.classList.add('hex-button-container', 'hosted-game-container');
+
+        hostedGameContainer.appendChild(createPvpButton);
+        hostedGameContainer.appendChild(joinPvpButton);
 
         this.states = {
-            [OnlineOverlayState.Master]: [createPvpButton, joinPvpButton],
-            [OnlineOverlayState.Create]: [backButton, createPvpDisplay],
-            [OnlineOverlayState.Join]: [backButton, joinPvpInput, joinSubmitButton],
+            [OnlineOverlayState.Master]: [hostedGameContainer],
+            [OnlineOverlayState.Create]: [createContainer],
+            [OnlineOverlayState.Join]: [joinContainer],
         };
 
         createPvpButton.addEventListener('mousedown', async e => {
@@ -42,6 +75,10 @@ export default class OnlineOverlay {
 
                 this.toState(OnlineOverlayState.Create);
             }
+        });
+
+        joinPvpInput.addEventListener('input', () => {
+            joinPvpInput.value = joinPvpInput.value.toUpperCase();
         });
 
         joinPvpButton.addEventListener('mousedown', e => {
@@ -64,9 +101,14 @@ export default class OnlineOverlay {
             }
         });
 
-        backButton.addEventListener('mousedown', e => {
+        joinBackButton.addEventListener('mousedown', e => {
             if (e.button === LEFT_BUTTON) {
-                console.log('clicked the back button')
+                this.toState(OnlineOverlayState.Master);
+            }
+        });
+
+        createBackButton.addEventListener('mousedown', e => {
+            if (e.button === LEFT_BUTTON) {
                 this.toState(OnlineOverlayState.Master);
             }
         });

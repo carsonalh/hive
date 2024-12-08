@@ -33,9 +33,11 @@ export default class NavigationOverlay {
             title.appendChild(backgroundHexagon2);
             title.appendChild(backgroundHexagon3);
 
+            const buttonContainer = document.createElement('div');
+            buttonContainer.classList.add('hex-button-container');
+
             const playOnlineButton = document.createElement('button');
             playOnlineButton.textContent = 'Play Online';
-            playOnlineButton.classList.add('navigation-button');
 
             playOnlineButton.addEventListener('mousedown', e => {
                 if (e.button === LEFT_BUTTON) {
@@ -46,7 +48,6 @@ export default class NavigationOverlay {
 
             const playLocallyButton = document.createElement('button');
             playLocallyButton.textContent = 'Local PvP';
-            playLocallyButton.classList.add('navigation-button');
 
             playLocallyButton.addEventListener('mousedown', e => {
                 if (e.button === LEFT_BUTTON) {
@@ -55,9 +56,11 @@ export default class NavigationOverlay {
                 }
             });
 
+            buttonContainer.appendChild(playOnlineButton);
+            buttonContainer.appendChild(playLocallyButton);
+
             mainMenu.appendChild(title);
-            mainMenu.appendChild(playOnlineButton);
-            mainMenu.appendChild(playLocallyButton);
+            mainMenu.appendChild(buttonContainer);
 
             this.mainMenuElements = [mainMenu];
         }
@@ -65,7 +68,7 @@ export default class NavigationOverlay {
         // gameplay setup
         {
             const backToMainMenuButton = document.createElement('button');
-            backToMainMenuButton.classList.add('navigation-button', 'navigation-button-back');
+            backToMainMenuButton.classList.add('hex-button', 'navigation-button-back');
             backToMainMenuButton.textContent = 'Exit Game';
 
             backToMainMenuButton.addEventListener('mousedown', e => {
