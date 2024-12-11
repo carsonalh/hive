@@ -214,6 +214,8 @@ class Hud {
                 document.body.removeChild(e);
             }
         }
+
+        document.body.removeChild(this.moveIndicator);
     }
 
     public setPieceCounts(counts: Record<HivePieceType, number>): void {
