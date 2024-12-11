@@ -6,13 +6,13 @@ module.exports = (_, argv) => {
   const isProduction = argv.mode === 'production';
 
   return {
-    entry: './src/index.ts',
+    entry: './src/index.tsx',
     output: {
       filename: 'bundle.js',
       path: path.resolve(__dirname, 'dist'),
     },
     resolve: {
-      extensions: ['.ts', '.js'],
+      extensions: ['.ts', '.js', '.tsx', '.jsx'],
       alias: {
         'configuration': path.resolve(__dirname, isProduction
             ? './src/configuration-production.ts'
@@ -22,9 +22,9 @@ module.exports = (_, argv) => {
     module: {
       rules: [
         {
-          test: /\.ts$/,
+          test: /\.tsx?$/,
           use: 'ts-loader',
-          exclude: /node_modules/,
+          exclude: /node_modules/
         },
       ],
     },
