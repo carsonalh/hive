@@ -23,7 +23,6 @@ const PvpMenuCreate: React.FC = () => {
         })();
 
         return () => {
-            console.warn(`did${didConnect ? '' : ' not'} connect!!`);
             if (!didConnect) {
                 client.disconnect();
             }

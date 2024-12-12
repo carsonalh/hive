@@ -18,13 +18,12 @@ const GameplayLocal: React.FC = () => {
         let resizeListener: () => unknown;
 
         async function createLocalScene() {
-            const go = new Go(); // Create a new Go instance
+            const go = new Go();
 
             const response = await fetch('main.wasm');
             const buffer = await response.arrayBuffer();
-            const {instance} = await WebAssembly.instantiate(buffer, go.importObject); // Use Go's import object
-
-            go.run(instance); // Run the Go instance
+            const {instance} = await WebAssembly.instantiate(buffer, go.importObject);
+            go.run(instance);
 
             ls = await LocalScene.create();
 

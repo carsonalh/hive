@@ -7,6 +7,7 @@ import {LEFT_BUTTON} from "./constants";
 import {Move} from "./online-client";
 import {GameplayScene} from "./gameplay-scene";
 import {HexVector} from "./hex-grid";
+import {Scene} from "three";
 
 export interface OnlineMoveHandler {
     placePieceHandler?: (pieceType: HivePieceType, position: HexVector) => unknown;
@@ -34,7 +35,6 @@ export default class OnlineScene implements GameplayScene {
     }
 
     public onReceiveMove(move: Move): void {
-        console.warn(`RECEIVED A MOVE ${JSON.stringify(move)}`)
         let success = false;
 
         switch (move.moveType) {
@@ -50,6 +50,7 @@ export default class OnlineScene implements GameplayScene {
             throw new Error('client received an illegal move from the server; very bad');
         }
 
+        this.hud.setPlayerToMove(this.hiveScene.game.colorToMove());
         this.updateHud();
     }
 
@@ -101,11 +102,14 @@ export default class OnlineScene implements GameplayScene {
                 if (this.hud.selectedPieceType != null) {
                     if (isOurTurn && this.hiveScene.placePiece(this.hud.selectedPieceType, hit)) {
                         this.placePieceHandler(this.hud.selectedPieceType, hit);
+                        this.hud.setPlayerToMove(this.hiveScene.game.colorToMove());
                         this.updateHud();
                     }
                 } else if (this.hiveScene.selected != null) {
                     if (isOurTurn && this.hiveScene.movePiece(this.hiveScene.selected, hit)) {
                         this.movePieceHandler(this.hiveScene.selected, hit);
+                        this.hud.setPlayerToMove(this.hiveScene.game.colorToMove());
+                        this.updateHud();
                     }
                 } else {
                     this.hiveScene.select(hit);
@@ -129,7 +133,15 @@ export default class OnlineScene implements GameplayScene {
         this.hiveScene.update(deltaTimeMs, state);
     }
 
+    private static lastScene: Scene | null = null;
+
     public render(renderer: THREE.WebGLRenderer): void {
+        if (OnlineScene.lastScene == null) {
+            OnlineScene.lastScene = this.scene;
+        } else if (OnlineScene.lastScene !== this.scene) {
+            OnlineScene.lastScene = this.scene;
+        }
+
         renderer.clear();
         renderer.render(this.scene, this.camera);
         renderer.clearDepth();
