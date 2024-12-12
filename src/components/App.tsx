@@ -1,14 +1,17 @@
 import React from "react";
-import {Link} from "react-router";
+import {BrowserRouter, Route, Routes} from "react-router";
+import GameplayLocal from "./GameplayLocal";
+import Home from "./Home";
+import OnlineContainer from "./OnlineContainer";
 
 export const App: React.FC = () => {
     return (
-        <div className="App">
-            <h1>HiveGame.io</h1>
-            <div className="hex-button-container">
-                <Link to='/local'>Play Local</Link>
-                <Link to='/online'>Play Online</Link>
-            </div>
-        </div>
+        <BrowserRouter>
+            <Routes>
+                <Route index element={<Home/>}/>
+                <Route path="local" element={<GameplayLocal/>} />
+                <Route path="online/*" element={<OnlineContainer/>}/>
+            </Routes>
+        </BrowserRouter>
     );
 }

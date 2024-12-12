@@ -12,7 +12,7 @@ export type Move = {
     to: HexVector,
 };
 
-export interface OnlineClientOptions {
+export interface OnlineClientHandlers {
     receiveMoveHandler?: (move: Move) => unknown;
     connectHandler?: (color: HiveColor) => unknown;
     connectionCloseHandler?: () => unknown;
@@ -31,20 +31,29 @@ export default class OnlineClient {
             nextMove: HiveColor,
         } | null,
     } | null = null;
-    private readonly receiveMoveHandler: (move: Move) => unknown;
-    private readonly connectHandler: (color: HiveColor) => unknown;
-    private readonly connectionCloseHandler: () => unknown;
-    private readonly opponentDisconnectHandler: () => unknown;
-    private readonly opponentReconnectHandler: () => unknown;
-    private readonly gameCompletedHandler: (won: boolean) => unknown;
+    private receiveMoveHandler: (move: Move) => unknown;
+    private connectHandler: (color: HiveColor) => unknown;
+    private connectionCloseHandler: () => unknown;
+    private opponentDisconnectHandler: () => unknown;
+    private opponentReconnectHandler: () => unknown;
+    private gameCompletedHandler: (won: boolean) => unknown;
 
-    public constructor(options?: OnlineClientOptions) {
-        this.receiveMoveHandler = options?.receiveMoveHandler ?? (() => {});
-        this.connectHandler = options?.connectHandler ?? (() => {});
-        this.connectionCloseHandler = options?.connectionCloseHandler ?? (() => {});
-        this.opponentDisconnectHandler = options?.opponentDisconnectHandler ?? (() => {});
-        this.opponentReconnectHandler = options?.opponentReconnectHandler ?? (() => {});
-        this.gameCompletedHandler = options?.gameCompletedHandler ?? (() => {});
+    public constructor(handlers?: OnlineClientHandlers) {
+        this.receiveMoveHandler = handlers?.receiveMoveHandler ?? (() => {});
+        this.connectHandler = handlers?.connectHandler ?? (() => {});
+        this.connectionCloseHandler = handlers?.connectionCloseHandler ?? (() => {});
+        this.opponentDisconnectHandler = handlers?.opponentDisconnectHandler ?? (() => {});
+        this.opponentReconnectHandler = handlers?.opponentReconnectHandler ?? (() => {});
+        this.gameCompletedHandler = handlers?.gameCompletedHandler ?? (() => {});
+    }
+
+    public setHandlers(handlers: OnlineClientHandlers) {
+        this.receiveMoveHandler = handlers?.receiveMoveHandler ?? this.receiveMoveHandler;
+        this.connectHandler = handlers?.connectHandler ?? this.connectHandler;
+        this.connectionCloseHandler = handlers?.connectionCloseHandler ?? this.connectionCloseHandler;
+        this.opponentDisconnectHandler = handlers?.opponentDisconnectHandler ?? this.opponentDisconnectHandler;
+        this.opponentReconnectHandler = handlers?.opponentReconnectHandler ?? this.opponentReconnectHandler;
+        this.gameCompletedHandler = handlers?.gameCompletedHandler ?? this.gameCompletedHandler;
     }
 
     public async join(): Promise<void> {
@@ -154,8 +163,35 @@ export default class OnlineClient {
         }))
     }
 
+    /**
+     * Closes the client entirely.  As there is no special logic in the constructor, the client
+     * can be reused after close().
+     */
     public close(): void {
         this.session?.game?.socket.close();
+        this.session = null;
+    }
+
+    /**
+     * Disconnects from the current game, but keeps the session (storing the user token) alive.
+     */
+    public disconnect(): void {
+        this.session?.game?.socket.close();
+
+        if (this.session?.game != null) {
+            this.session.game = null;
+        }
+    }
+
+    public connected(): boolean {
+        return this.session?.game != null;
+    }
+
+    /**
+     * Returns null if there is no active connection.
+     */
+    public color(): HiveColor | null {
+        return this.session?.game?.color ?? null;
     }
 
     private onMessage(message: string) {

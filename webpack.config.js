@@ -39,6 +39,7 @@ module.exports = (_, argv) => {
         path.join(__dirname, 'dist'),
         path.join(__dirname, 'res'),
       ],
+      historyApiFallback: true,
       compress: true,
       port: 9000,
       hot: true,
