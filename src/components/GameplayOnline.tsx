@@ -1,4 +1,4 @@
-import React, {createRef, useEffect, useRef} from "react";
+import React, {createRef, useEffect, useRef, useState} from "react";
 import {Clock, PCFSoftShadowMap, WebGLRenderer} from "three";
 import MouseStateTracker from "../mouse-state";
 import OnlineScene from "../online-scene";
@@ -17,6 +17,11 @@ const onlineSceneDataRef = createRef<OnlineSceneData>();
 const GameplayOnline: React.FC = () => {
     const containerRef = useRef<HTMLDivElement>(null);
     const clientRef = useClientRefContext();
+
+    const [opponentDisconnected, setOpponentDisconnected] = useState(false);
+
+    const onDisconnect = () => setOpponentDisconnected(true);
+    const onReconnect = () => setOpponentDisconnected(false);
 
     useEffect(() => {
         if (onlineSceneDataRef.current != null) {
@@ -65,8 +70,14 @@ const GameplayOnline: React.FC = () => {
             };
             const connectHandler = scene.onConnect.bind(scene);
             const connectionCloseHandler = scene.onConnectionClose.bind(scene);
-            const opponentDisconnectHandler = scene.onOpponentDisconnect.bind(scene);
-            const opponentReconnectHandler = scene.onOpponentReconnect.bind(scene);
+            const opponentDisconnectHandler = () => {
+                onDisconnect();
+                scene.onOpponentDisconnect();
+            }
+            const opponentReconnectHandler = () => {
+                onReconnect();
+                scene.onOpponentReconnect();
+            }
             const gameCompletedHandler = scene.onGameComplete.bind(scene);
 
             client.setHandlers({
@@ -135,7 +146,13 @@ const GameplayOnline: React.FC = () => {
         };
     }, []);
 
-    return <div ref={containerRef}></div>
+    return <>
+        <div ref={containerRef}></div>
+        {opponentDisconnected && <div>
+            <h2>Opponent has Disconnected</h2>
+            <p>Please wait for them to reconnect, otherwise you will win after 45 seconds of disconnection.</p>
+        </div>}
+    </>;
 };
 
 export default GameplayOnline;
