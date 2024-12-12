@@ -28,13 +28,16 @@ const GameplayOnline: React.FC = () => {
 
             go.run(instance); // Run the Go instance
 
-            os = await OnlineScene.create();
-
             const client = clientRef.current;
 
             if (!client.connected()) {
                 throw new Error('expected client to be connected in GameplayOnline');
             }
+
+            os = await OnlineScene.create({
+                placePieceHandler: client.placePiece.bind(client),
+                movePieceHandler: client.movePiece.bind(client),
+            });
 
             os.onConnect(client.color()!);
 

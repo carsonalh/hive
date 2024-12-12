@@ -12,18 +12,18 @@ const PvpMenuCreate: React.FC = () => {
         let didConnect = false;
 
         (async () => {
-            const gameId = await client.createPvpGame();
-            setId(gameId);
             client.setHandlers({
                 connectHandler: () => {
                     didConnect = true;
                     navigate("../play");
                 }
             })
-            client.joinPvpGame(gameId);
+            const gameId = await client.createPvpGame();
+            setId(gameId);
         })();
 
         return () => {
+            console.warn(`did${didConnect ? '' : ' not'} connect!!`);
             if (!didConnect) {
                 client.disconnect();
             }

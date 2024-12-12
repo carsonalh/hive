@@ -117,6 +117,7 @@ export default class OnlineClient {
         });
 
         socket.addEventListener('close', () => {
+            this.disconnect();
             this.connectionCloseHandler();
         });
 

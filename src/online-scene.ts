@@ -34,6 +34,7 @@ export default class OnlineScene implements GameplayScene {
     }
 
     public onReceiveMove(move: Move): void {
+        console.warn(`RECEIVED A MOVE ${JSON.stringify(move)}`)
         let success = false;
 
         switch (move.moveType) {
