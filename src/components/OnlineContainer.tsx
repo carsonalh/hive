@@ -1,4 +1,4 @@
-import React, {createContext, RefObject, useContext, useEffect, useRef} from "react";
+import React, {createContext, RefObject, useContext, useEffect, useRef, useState} from "react";
 import OnlineClient from "../online-client";
 import {Route, Routes} from "react-router";
 import Lobby from "./Lobby";
@@ -17,13 +17,20 @@ export const useClientRefContext = () => {
     return ctx;
 }
 
+const ClientReadyContext = createContext(false);
+export const useClientReadyContext = () => useContext(ClientReadyContext);
+
 const OnlineContainer: React.FC = () => {
     const clientRef = useRef(new OnlineClient());
+    const [clientReady, setClientReady] = useState(false);
 
     useEffect(() => {
         const client = clientRef.current;
-        const p = client.join();
-        p.catch(console.error);
+
+        const p = (async () => {
+            await client.join();
+            setClientReady(true);
+        })();
 
         return () => {
             p.then(() => client.close());
@@ -31,12 +38,14 @@ const OnlineContainer: React.FC = () => {
     }, []);
 
     return <ClientRefContext.Provider value={clientRef}>
-        <Routes>
-            <Route index element={<Lobby/>}/>
-            <Route path="create" element={<PvpMenuCreate/>}/>
-            <Route path="join" element={<PvpMenuJoin/>}/>
-            <Route path="play" element={<GameplayOnline/>}/>
-        </Routes>
+        <ClientReadyContext.Provider value={clientReady}>
+            <Routes>
+                <Route index element={<Lobby/>}/>
+                <Route path="create" element={<PvpMenuCreate/>}/>
+                <Route path="join" element={<PvpMenuJoin/>}/>
+                <Route path="play" element={<GameplayOnline/>}/>
+            </Routes>
+        </ClientReadyContext.Provider>
     </ClientRefContext.Provider>
 };
 

@@ -1,17 +1,26 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {Link, useNavigate} from "react-router";
-import {useClientRefContext} from "./OnlineContainer";
+import {useClientReadyContext, useClientRefContext} from "./OnlineContainer";
 
 const PvpMenuJoin: React.FC = () => {
     const [id, setId] = useState<string>('');
     const clientRef = useClientRefContext();
     const navigate = useNavigate();
+    const clientReady = useClientReadyContext();
+
+    const [didSubmit, setDidSubmit] = useState(false)
 
     const onSubmit = () => {
+        setDidSubmit(true);
+    };
+
+    useEffect(() => {
+        if (!didSubmit || !clientReady) return;
+
         const client = clientRef.current;
         client.joinPvpGame(id);
         navigate("../play");
-    };
+    }, [didSubmit, clientReady]);
 
     return <>
         <Link to="..">Back</Link>

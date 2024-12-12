@@ -1,13 +1,16 @@
 import React, {useEffect, useState} from 'react';
 import {Link, useNavigate} from "react-router";
-import {useClientRefContext} from "./OnlineContainer";
+import {useClientReadyContext, useClientRefContext} from "./OnlineContainer";
 
 const PvpMenuCreate: React.FC = () => {
     const clientRef = useClientRefContext();
     const [id, setId] = useState<string | null>(null);
     const navigate = useNavigate();
+    const clientReady = useClientReadyContext();
 
     useEffect(() => {
+        if (!clientReady) return;
+
         const client = clientRef.current;
         let didConnect = false;
 
@@ -27,7 +30,7 @@ const PvpMenuCreate: React.FC = () => {
                 client.disconnect();
             }
         };
-    }, []);
+    }, [clientReady]);
 
     return <>
         <Link to="..">Back</Link>
