@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {Scene} from 'three';
 import HiveScene from "./hive-scene";
 import {HiveColor, HivePieceType} from "./hive-game";
 import Hud from "./hud";
@@ -7,7 +8,6 @@ import {LEFT_BUTTON} from "./constants";
 import {Move} from "./online-client";
 import {GameplayScene} from "./gameplay-scene";
 import {HexVector} from "./hex-grid";
-import {Scene} from "three";
 
 export interface OnlineMoveHandler {
     placePieceHandler?: (pieceType: HivePieceType, position: HexVector) => unknown;
@@ -25,8 +25,10 @@ export default class OnlineScene implements GameplayScene {
     }
 
     private constructor(private hiveScene: HiveScene, private hud: Hud, moveHandler?: OnlineMoveHandler) {
-        this.placePieceHandler = moveHandler?.placePieceHandler ?? (() => {});
-        this.movePieceHandler = moveHandler?.movePieceHandler ?? (() => {});
+        this.placePieceHandler = moveHandler?.placePieceHandler ?? (() => {
+        });
+        this.movePieceHandler = moveHandler?.movePieceHandler ?? (() => {
+        });
     }
 
     public onConnect(color: HiveColor): void {
@@ -102,13 +104,11 @@ export default class OnlineScene implements GameplayScene {
                 if (this.hud.selectedPieceType != null) {
                     if (isOurTurn && this.hiveScene.placePiece(this.hud.selectedPieceType, hit)) {
                         this.placePieceHandler(this.hud.selectedPieceType, hit);
-                        this.hud.setPlayerToMove(this.hiveScene.game.colorToMove());
                         this.updateHud();
                     }
                 } else if (this.hiveScene.selected != null) {
                     if (isOurTurn && this.hiveScene.movePiece(this.hiveScene.selected, hit)) {
                         this.movePieceHandler(this.hiveScene.selected, hit);
-                        this.hud.setPlayerToMove(this.hiveScene.game.colorToMove());
                         this.updateHud();
                     }
                 } else {

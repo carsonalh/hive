@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hive Game</title>
-    <script src="wasm_exec.js"></script>
+    <script src="/wasm_exec.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 
@@ -40,14 +40,20 @@
         }
 
         .hex-button-container > button,
+        .hex-button-container > a,
         .hex-button {
             box-sizing: border-box;
             --height: 60px;
+            --width: 200px;
             --hexagon-inset: calc(var(--height) / (2 * sqrt(3)));
+            display: block;
+            text-align: center;
+            text-decoration: none;
+            line-height: var(--height);
             font-family: inherit;
             font-weight: 600;
             height: var(--height);
-            width: 200px;
+            width: var(--width);
             align-self: center;
             cursor: pointer;
             border: none;
@@ -65,7 +71,18 @@
             );
         }
 
+        .hex-button.back {
+            --height: 40px;
+            --width: 150px;
+            font-size: 22px;
+            font-weight: 600;
+            position: absolute;
+            top: 30px;
+            right: 40px;
+        }
+
         .hex-button-container > button:hover,
+        .hex-button-container > a:hover,
         .hex-button:hover {
             background-color: #202020;
         }
@@ -119,13 +136,14 @@
         }
 
         .hex-button-container {
-            width: 350px;
+            width: 400px;
             display: flex;
             flex-wrap: wrap;
             position: absolute;
             top: 55vh;
         }
 
+        .hex-button-container > a,
         .hex-button-container > button {
             --hexagon-gap: 6px;
             --x-axis-offset: calc(var(--hexagon-inset) - var(--hexagon-gap) * sqrt(3) / 2);
@@ -133,10 +151,12 @@
             width: 50%;
         }
 
+        .hex-button-container a:nth-of-type(odd),
         .hex-button-container button:nth-of-type(odd) {
             transform: translate(calc(var(--x-axis-offset) / 2), 0);
         }
 
+        .hex-button-container a:nth-of-type(even),
         .hex-button-container button:nth-of-type(even) {
             transform: translate(calc(-1 * var(--x-axis-offset) / 2), calc(50% + var(--hexagon-gap) / 2));
         }
@@ -193,7 +213,7 @@
             text-align: center;
         }
 
-        .online-overlay-container main.create button {
+        .online-overlay-container main .hex-button {
             margin-top: 20px;
         }
 

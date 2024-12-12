@@ -32,12 +32,15 @@ const PvpMenuCreate: React.FC = () => {
         };
     }, [clientReady]);
 
-    return <>
-        <Link to="..">Back</Link>
-        {id == null
-            ? <p>Loading...</p>
-            : <p>{id}</p>}
-    </>;
+    return <div className="online-overlay-container">
+        <main className="create">
+            <p>Share the following game code with your opponent...</p>
+            {id == null
+                ? <p>Loading...</p>
+                : <div>{id}</div>}
+        </main>
+        <Link to=".." className="hex-button back">Back</Link>
+    </div>;
 }
 
 export default PvpMenuCreate;

@@ -22,12 +22,14 @@ const PvpMenuJoin: React.FC = () => {
         navigate("../play");
     }, [didSubmit, clientReady]);
 
-    return <>
-        <Link to="..">Back</Link>
-        <p>Enter the id of the game you would like to join</p>
-        <input type='text' value={id} onChange={e => setId(e.target.value.toUpperCase())}></input>
-        <button onPointerDown={onSubmit}>Join</button>
-    </>;
+    return <div className="online-overlay-container">
+        <main className="join">
+            <p>Enter the id of the game you would like to join</p>
+            <input type='text' value={id} onChange={e => setId(e.target.value.toUpperCase())}></input>
+            <button className="hex-button" onPointerDown={onSubmit}>Join</button>
+        </main>
+        <Link to=".." className="hex-button back">Back</Link>
+    </div>;
 }
 
 export default PvpMenuJoin;
