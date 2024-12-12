@@ -95,34 +95,40 @@ export default class OnlineClient {
      * Join a pvp game.
      * @param id The id of the game to join
      */
-    public joinPvpGame(id: string): void {
-        if (this.session == null) {
-            throw new Error('cannot join a pvp game without having authenticated first');
-        }
+    public joinPvpGame(id: string): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
+            if (this.session == null) {
+                throw new Error('cannot join a pvp game without having authenticated first');
+            }
 
-        const socket = new WebSocket(`${WEBSOCKET_HOSTNAME}/hosted-game/play?id=${id}`);
+            const socket = new WebSocket(`${WEBSOCKET_HOSTNAME}/hosted-game/play?id=${id}`);
 
-        this.session.game = {
-            id,
-            socket,
-            color: HiveColor.Black,
-            nextMove: HiveColor.Black,
-        };
+            this.session.game = {
+                id,
+                socket,
+                color: HiveColor.Black,
+                nextMove: HiveColor.Black,
+            };
 
-        socket.addEventListener('open', () => {
-            socket.send(JSON.stringify({
-                event: 'AUTHENTICATE',
-                token: this.session!.token,
-            }));
-        });
+            socket.addEventListener('open', () => {
+                socket.send(JSON.stringify({
+                    event: 'AUTHENTICATE',
+                    token: this.session!.token,
+                }));
 
-        socket.addEventListener('close', () => {
-            this.disconnect();
-            this.connectionCloseHandler();
-        });
+                resolve();
+            });
 
-        socket.addEventListener('message', event => {
-            this.onMessage(event.data);
+            socket.addEventListener('error', reject);
+
+            socket.addEventListener('close', () => {
+                this.disconnect();
+                this.connectionCloseHandler();
+            });
+
+            socket.addEventListener('message', event => {
+                this.onMessage(event.data);
+            });
         });
     }
 
