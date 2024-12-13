@@ -1,65 +1,67 @@
-import {HexVector} from "./hex-grid";
-
-interface IHexVector {
-    q: number;
-    r: number;
-}
+import {HexVector, HexVectorLike} from "./hex-grid";
 
 interface ITile {
     color: number;
     stackHeight: number;
-    position: IHexVector;
+    position: HexVectorLike;
     pieceType: number;
 }
 
-interface HiveGameObject {
-    createHiveGame(): unknown;
-
-    placeTile(game: unknown, pieceType: number, position: IHexVector): [unknown, boolean];
-
-    moveTile(game: unknown, from: IHexVector, to: IHexVector): [unknown, boolean];
-
-    legalMoves(game: unknown, position: IHexVector): IHexVector[];
-
-    tiles(game: unknown): ITile[];
-
-    idOfLastPlaced(game: unknown): number;
-
-    idOfTileAt(game: unknown, position: IHexVector): number;
-
-    colorToMove(game: unknown): number;
-
-    getTilesRemaining(game: unknown, color: number, pieceType: number): number;
-
-    moveNumber(game: unknown): number;
-
-    COLOR_BLACK: number;
-    COLOR_WHITE: number;
-
-    PIECE_TYPE_QUEEN_BEE: number;
-    PIECE_TYPE_SOLDIER_ANT: number;
-    PIECE_TYPE_SPIDER: number;
-    PIECE_TYPE_GRASSHOPPER: number;
-    PIECE_TYPE_BEETLE: number;
-    PIECE_TYPE_LADYBUG: number;
-    PIECE_TYPE_MOSQUITO: number;
+export interface HiveState {
+    whiteReserve: {
+        QUEEN_BEE: number;
+        SOLDIER_ANT: number;
+        SPIDER: number;
+        GRASSHOPPER: number;
+        BEETLE: number;
+        LADYBUG: number;
+        MOSQUITO: number;
+    };
+    blackReserve: {
+        QUEEN_BEE: number;
+        SOLDIER_ANT: number;
+        SPIDER: number;
+        GRASSHOPPER: number;
+        BEETLE: number;
+        LADYBUG: number;
+        MOSQUITO: number;
+    };
+    tiles: {
+        color: HiveColor;
+        position: HexVectorLike;
+        stackHeight: number;
+        pieceType: HivePieceType;
+    }[];
+    colorToMove: HiveColor;
+    move: number;
 }
 
-declare const hive: HiveGameObject;
+export interface HiveGameObject {
+    createHiveGame(): HiveState;
+    placeTile(game: HiveState, pieceType: number, position: HexVectorLike): [HiveState, boolean];
+    moveTile(game: HiveState, from: HexVectorLike, to: HexVectorLike): [HiveState, boolean];
+    tiles(game: HiveState): ITile[];
+    idOfLastPlaced(game: HiveState): number;
+    idOfTileAt(game: HiveState, position: HexVectorLike): number;
+    colorToMove(game: HiveState): HiveColor;
+    getTilesRemaining(game: HiveState, color: number, pieceType: number): number;
+    moveNumber(game: HiveState): number;
+    legalMoves(game: HiveState, position: HexVectorLike): HexVectorLike[];
+}
 
 export enum HiveColor {
-    Black,
-    White,
+    Black = 0,
+    White = 1,
 }
 
 export enum HivePieceType {
-    QueenBee,
-    SoldierAnt,
-    Spider,
-    Grasshopper,
-    Beetle,
-    Ladybug,
-    Mosquito,
+    QueenBee = 0,
+    SoldierAnt = 1,
+    Grasshopper = 2,
+    Spider = 3,
+    Beetle = 4,
+    Ladybug = 5,
+    Mosquito = 6,
 }
 
 export interface HiveTile {
@@ -70,55 +72,29 @@ export interface HiveTile {
 }
 
 export class HiveGame {
-    private game: unknown;
-    private readonly pieceTypeMap: Record<HivePieceType, number>;
-    private readonly colorMap: Record<HiveColor, number>;
-
-    public static internalPieceTypeMap(): Record<HivePieceType, number> {
-        return {
-            [HivePieceType.QueenBee]: hive.PIECE_TYPE_QUEEN_BEE,
-            [HivePieceType.SoldierAnt]: hive.PIECE_TYPE_SOLDIER_ANT,
-            [HivePieceType.Spider]: hive.PIECE_TYPE_SPIDER,
-            [HivePieceType.Grasshopper]: hive.PIECE_TYPE_GRASSHOPPER,
-            [HivePieceType.Beetle]: hive.PIECE_TYPE_BEETLE,
-            [HivePieceType.Ladybug]: hive.PIECE_TYPE_LADYBUG,
-            [HivePieceType.Mosquito]: hive.PIECE_TYPE_MOSQUITO,
-        };
-    }
+    private game: HiveState;
 
     public constructor() {
         this.game = hive.createHiveGame();
-        this.pieceTypeMap = {
-            [HivePieceType.QueenBee]: hive.PIECE_TYPE_QUEEN_BEE,
-            [HivePieceType.SoldierAnt]: hive.PIECE_TYPE_SOLDIER_ANT,
-            [HivePieceType.Spider]: hive.PIECE_TYPE_SPIDER,
-            [HivePieceType.Grasshopper]: hive.PIECE_TYPE_GRASSHOPPER,
-            [HivePieceType.Beetle]: hive.PIECE_TYPE_BEETLE,
-            [HivePieceType.Ladybug]: hive.PIECE_TYPE_LADYBUG,
-            [HivePieceType.Mosquito]: hive.PIECE_TYPE_MOSQUITO,
-        };
-
-        this.colorMap = {
-            [HiveColor.Black]: hive.COLOR_BLACK,
-            [HiveColor.White]: hive.COLOR_WHITE,
-        };
     }
 
-    public placeTile(pieceType: HivePieceType, where: HexVector): boolean {
-        let game: unknown, success: boolean;
-        [game, success] = hive.placeTile(this.game, this.pieceTypeMap[pieceType], where);
+    public setState(state: HiveState) {
+        this.game = state;
+    }
 
+    public getState(): HiveState {
+        return this.game;
+    }
+
+    public placeTile(pieceType: HivePieceType, where: HexVectorLike): boolean {
+        const [game, success] = hive.placeTile(this.game, pieceType, where);
         this.game = game;
-
         return success;
     }
 
-    public moveTile(from: HexVector, to: HexVector): boolean {
-        let game: unknown, success: boolean;
-        [game, success] = hive.moveTile(this.game, from, to);
-
+    public moveTile(from: HexVectorLike, to: HexVectorLike): boolean {
+        const [game, success] = hive.moveTile(this.game, from, to);
         this.game = game;
-
         return success;
     }
 
@@ -130,8 +106,8 @@ export class HiveGame {
     public tiles(): HiveTile[] {
         const rawTiles = hive.tiles(this.game)
         return rawTiles.map(t => ({
-            color: Number(Object.entries(this.colorMap).find(([_, v]) => v === t.color)![0]),
-            pieceType: Number(Object.entries(this.pieceTypeMap).find(([_, v]) => v === t.pieceType)![0]),
+            color: t.color,
+            pieceType: t.pieceType,
             stackHeight: t.stackHeight,
             position: new HexVector(t.position.q, t.position.r),
         }));
@@ -158,15 +134,14 @@ export class HiveGame {
     }
 
     public colorToMove(): HiveColor {
-        const color = hive.colorToMove(this.game);
-        return Number(Object.entries(this.colorMap).find(([_, v]) => v === color)![0]);
+        return hive.colorToMove(this.game);
     }
 
     public getTilesRemaining(color: HiveColor, pieceType: HivePieceType) {
         return hive.getTilesRemaining(
             this.game,
-            this.colorMap[color],
-            this.pieceTypeMap[pieceType]
+            color,
+            pieceType
         );
     }
 

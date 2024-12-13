@@ -17,7 +17,7 @@ export class HexGrid {
 
     public constructor(private horizontalSpacing = 2 * RADIUS + TILE_GAP) {}
 
-    public hexToEuclidean(vector: HexVector): THREE.Vector2 {
+    public hexToEuclidean(vector: HexVectorLike): THREE.Vector2 {
         const q = new THREE.Vector2().copy(HexGrid.BASIS_Q);
         const r = new THREE.Vector2().copy(HexGrid.BASIS_R);
 
@@ -66,7 +66,12 @@ export class HexGrid {
     }
 }
 
-export class HexVector {
+export interface HexVectorLike {
+    q: number;
+    r: number;
+}
+
+export class HexVector implements HexVectorLike {
     private readonly _q: number;
     private readonly _r: number;
 

@@ -1,5 +1,5 @@
 import {SERVER_HOSTNAME, WEBSOCKET_HOSTNAME} from 'configuration';
-import {HiveColor, HiveGame, HivePieceType} from "./hive-game";
+import {HiveColor, HivePieceType} from "./hive-game";
 import {HexVector} from "./hex-grid";
 
 export type Move = {
@@ -133,8 +133,6 @@ export default class OnlineClient {
     }
 
     public placePiece(pieceType: HivePieceType, position: HexVector) {
-        const pieceTypeMap = HiveGame.internalPieceTypeMap();
-
         const game = this.session?.game;
         if (game == null) {
             throw new Error('cannot place a piece when no current game is active');
@@ -145,7 +143,7 @@ export default class OnlineClient {
             move: {
                 moveType: "PLACE",
                 placement: {
-                    pieceType: pieceTypeMap[pieceType],
+                    pieceType: pieceType,
                     position: position.json(),
                 },
             },
@@ -240,17 +238,7 @@ export default class OnlineClient {
                         break;
                     }
                     case "PLACE": {
-                        const internalPieceType: number = response.move.placement.pieceType;
-                        let pieceType: HivePieceType | null = null;
-                        for (const [key, value] of Object.entries(HiveGame.internalPieceTypeMap())) {
-                            if (internalPieceType === value) {
-                                pieceType = Number(key);
-                                break;
-                            }
-                        }
-                        if (pieceType == null) {
-                            throw new Error('did not recognise piece type sent from server');
-                        }
+                        const pieceType: HivePieceType = response.move.placement.pieceType;
                         const position = new HexVector(response.move.placement.position.q, response.move.placement.position.r);
                         this.receiveMoveHandler({
                             moveType: "PLACE",

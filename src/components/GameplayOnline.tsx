@@ -1,158 +1,169 @@
-import React, {createRef, useEffect, useRef, useState} from "react";
-import {Clock, PCFSoftShadowMap, WebGLRenderer} from "three";
-import MouseStateTracker from "../mouse-state";
-import OnlineScene from "../online-scene";
-import {useClientRefContext} from "./OnlineContainer";
-import {Move} from "../online-client";
+import {Canvas, ThreeEvent, useThree} from "@react-three/fiber";
+import React, {createContext, useCallback, useContext, useEffect, useRef, useState} from "react";
+import {HiveColor, HivePieceType, HiveState} from "../hive-game";
+import {HexGrid, HexVectorLike} from "../hex-grid";
+import {DirectionalLight, Vector2, Vector3} from "three";
+import {useGoWasmLoaded} from "./GoWasmLoader";
+import Tiles, {BareTiles} from "./Tiles";
+import {OrbitControls} from '@react-three/drei'
 
-declare const Go: any;
+export const HiveStateContext = createContext<HiveState | null>(null);
+export const useHiveStateContext = (): HiveState => {
+    const value = useContext(HiveStateContext);
 
-interface OnlineSceneData {
-    scene: OnlineScene;
-    renderer: WebGLRenderer;
+    if (value == null) {
+        throw new Error('there is no reason why hive game context should be null');
+    }
+
+    return value;
 }
 
-const onlineSceneDataRef = createRef<OnlineSceneData>();
-
 const GameplayOnline: React.FC = () => {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const clientRef = useClientRefContext();
-
-    const [opponentDisconnected, setOpponentDisconnected] = useState(false);
-
-    const onDisconnect = () => setOpponentDisconnected(true);
-    const onReconnect = () => setOpponentDisconnected(false);
+    const canvasRef = useRef<HTMLCanvasElement>(null!);
+    const directionalLightRef = useRef<DirectionalLight>(null!);
+    const goWasmLoaded = useGoWasmLoaded();
+    const {state: hiveState, placeTile} = useHiveGame(goWasmLoaded);
 
     useEffect(() => {
-        if (onlineSceneDataRef.current != null) {
-            throw new Error('tried to instantiate an online scene while one already exists');
-        }
-
-        let data: OnlineSceneData | null = null;
-        const container = containerRef.current;
-        const clock = new Clock();
-        let resizeListener: () => unknown;
-
-        async function createOnlineScene() {
-            const go = new Go();
-
-            const response = await fetch('/main.wasm');
-            const buffer = await response.arrayBuffer();
-            const {instance} = await WebAssembly.instantiate(buffer, go.importObject);
-            go.run(instance);
-
-            const client = clientRef.current;
-            if (!client.connected()) {
-                throw new Error('expected client to be connected in GameplayOnline');
-            }
-
-            const mouseStateTracker = new MouseStateTracker();
-
-            const scene = await OnlineScene.create({
-                placePieceHandler: client.placePiece.bind(client),
-                movePieceHandler: client.movePiece.bind(client),
-            });
-
-            scene.onConnect(client.color()!);
-
-            const renderer = new WebGLRenderer({
-                alpha: true,
-                antialias: true,
-            });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.autoClear = false;
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = PCFSoftShadowMap;
-
-            const receiveMoveHandler = (move: Move) => {
-                scene.onReceiveMove(move);
-                scene.render(renderer);
-            };
-            const connectHandler = scene.onConnect.bind(scene);
-            const connectionCloseHandler = scene.onConnectionClose.bind(scene);
-            const opponentDisconnectHandler = () => {
-                onDisconnect();
-                scene.onOpponentDisconnect();
-            }
-            const opponentReconnectHandler = () => {
-                onReconnect();
-                scene.onOpponentReconnect();
-            }
-            const gameCompletedHandler = scene.onGameComplete.bind(scene);
-
-            client.setHandlers({
-                receiveMoveHandler,
-                connectHandler,
-                connectionCloseHandler,
-                opponentDisconnectHandler,
-                opponentReconnectHandler,
-                gameCompletedHandler,
-            });
-
-            renderer.domElement.oncontextmenu = _ => {
-                return false;
-            };
-
-            renderer.domElement.onmousedown = e => {
-                mouseStateTracker.onMouseDown(e);
-                scene?.onMouseDown(e, mouseStateTracker);
-            };
-
-            renderer.domElement.onmouseup = e => {
-                mouseStateTracker.onMouseUp(e);
-            };
-
-            renderer.domElement.onwheel = e => {
-                scene?.onWheel(e);
-            };
-
-            renderer.domElement.onmousemove = e => {
-                scene?.onMouseMove(e, mouseStateTracker);
-            };
-
-            resizeListener = () => {
-                scene?.onResize && scene.onResize();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            }
-            window.addEventListener('resize', resizeListener);
-
-            renderer.setAnimationLoop(() => {
-                const deltaTimeMs = clock.getDelta();
-                scene?.update(deltaTimeMs, mouseStateTracker);
-                scene?.render(renderer);
-            });
-
-            container!.appendChild(renderer.domElement);
-
-            onlineSceneDataRef.current = data = {
-                scene,
-                renderer,
-            };
-        }
-
-        const p = createOnlineScene();
-
-        return () => {
-            p.then(() => {
-                const data = onlineSceneDataRef.current;
-                if (data == null) {
-                    throw new Error('unreachable: by the time this promise fulfills, \'data\' should have been set');
-                }
-
-                data.scene.cleanup();
-                containerRef.current!.removeChild(data.renderer.domElement);
-                data.renderer.setAnimationLoop(null);
-            });
+        const onResize = () => {
+            canvasRef.current.width = window.innerWidth;
+            canvasRef.current.height = window.innerHeight;
         };
+
+        window.addEventListener('resize', onResize);
+        onResize();
+
+        return () => window.removeEventListener('resize', onResize);
     }, []);
 
-    return <>
-        <div ref={containerRef}></div>
-        {opponentDisconnected && <div>
-            <h2>Opponent has Disconnected</h2>
-            <p>Please wait for them to reconnect, otherwise you will win after 45 seconds of disconnection.</p>
-        </div>}
-    </>;
+    useEffect(() => {
+        if (directionalLightRef.current != null) {
+            directionalLightRef.current.shadow.camera.lookAt(new Vector3(0, 0, 0));
+            directionalLightRef.current.shadow.camera.near = -100;
+        }
+    }, [directionalLightRef.current]);
+
+    const onClickPlane = useCallback((e: ThreeEvent<MouseEvent>) => {
+        if (!goWasmLoaded) {
+            return
+        }
+
+        const hexGrid = new HexGrid();
+        const point = new Vector2().copy(e.point);
+        const hex = hexGrid.euclideanToHex(point);
+        if (!placeTile(HivePieceType.QueenBee, hex)) {
+            console.warn('allowed user to place an invalid move');
+        }
+    }, [goWasmLoaded]);
+
+    return <div>
+        <Canvas ref={canvasRef} camera={{position: [0, 0, 5]}} shadows>
+            <OrbitControls />
+            <CameraControls/>
+            <directionalLight
+                ref={directionalLightRef}
+                color={0xffffff}
+                position={[-1, -1, 1]}
+                intensity={1}
+                castShadow/>
+            <ambientLight color={0xffffff} intensity={1}/>
+            <mesh
+                position={[0, 0, 0]}
+                rotation={[0, 0, Math.PI / 2]}
+                receiveShadow
+                onClick={onClickPlane}>
+                <planeGeometry args={[1000, 1000]}/>
+                <meshPhysicalMaterial
+                    color={0x5cc955}
+                    specularIntensity={0}
+                    roughness={0.5}/>
+            </mesh>
+            <HiveStateContext.Provider value={hiveState}>
+                <React.Suspense fallback={<BareTiles />}>
+                    <Tiles />
+                </React.Suspense>
+            </HiveStateContext.Provider>
+        </Canvas>
+    </div>;
 };
+
+const CameraControls: React.FC = () => {
+    const {camera} = useThree();
+
+    useEffect(() => {
+        camera.up.set(0, 1, 0);
+        camera.lookAt(new Vector3(0, 0, 0));
+    }, []);
+
+    return false;
+};
+
+const useHiveGame = (ready: boolean): {
+    state: HiveState,
+    placeTile: (pieceType: HivePieceType, position: HexVectorLike) => boolean,
+    moveTile: (from: HexVectorLike, to: HexVectorLike) => boolean,
+} => {
+    const [state, setState] = useState<HiveState>({
+        blackReserve: {
+            QUEEN_BEE: 1,
+            SOLDIER_ANT: 2,
+            GRASSHOPPER: 3,
+            SPIDER: 2,
+            BEETLE: 2,
+            LADYBUG: 1,
+            MOSQUITO: 1,
+        },
+        whiteReserve: {
+            QUEEN_BEE: 1,
+            SOLDIER_ANT: 2,
+            GRASSHOPPER: 3,
+            SPIDER: 2,
+            BEETLE: 2,
+            LADYBUG: 1,
+            MOSQUITO: 1,
+        },
+        tiles: [],
+        colorToMove: HiveColor.Black,
+        move: 1,
+    });
+
+    useEffect(() => {
+        if (!ready) return;
+
+        setState(hive.createHiveGame());
+    }, [ready]);
+
+    return {
+        state,
+        placeTile: (pieceType, position) => {
+            if (!ready) {
+                throw new Error('useHiveGame(): cannot mutate state before ready');
+            }
+
+            let success = false;
+
+            setState(prev => {
+                let state: HiveState;
+                [state, success] = hive.placeTile(prev, pieceType, position);
+                return state;
+            });
+
+            return success;
+        },
+        moveTile: (from, to) => {
+            if (!ready) {
+                throw new Error('useHiveGame(): cannot mutate state before ready');
+            }
+
+            if (!ready) {
+                throw new Error('useHiveGame(): cannot mutate state before ready');
+            }
+
+            const [newState, success] = hive.moveTile(state, from, to);
+            setState(newState);
+            return success;
+        },
+    };
+}
 
 export default GameplayOnline;

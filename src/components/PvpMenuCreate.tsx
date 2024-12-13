@@ -11,7 +11,7 @@ const PvpMenuCreate: React.FC = () => {
     useEffect(() => {
         if (!clientReady) return;
 
-        const client = clientRef.current;
+        const client = clientRef.current!;
         let didConnect = false;
 
         (async () => {

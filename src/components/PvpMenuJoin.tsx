@@ -18,7 +18,7 @@ const PvpMenuJoin: React.FC = () => {
     useEffect(() => {
         if (!didSubmit || !clientReady) return;
 
-        const client = clientRef.current;
+        const client = clientRef.current!;
         client
             .joinPvpGame(id)
             .then(() => navigate("../play"))
