@@ -1,11 +1,19 @@
-import {Canvas, ThreeEvent, useThree} from "@react-three/fiber";
-import React, {createContext, useCallback, useContext, useEffect, useRef, useState} from "react";
+import {Canvas, createPortal, ThreeEvent, useFrame, useThree} from "@react-three/fiber";
+import React, {
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+    useState
+} from "react";
 import {HiveColor, HivePieceType, HiveState} from "../hive-game";
 import {HexGrid, HexVectorLike} from "../hex-grid";
-import {DirectionalLight, Vector2, Vector3} from "three";
+import {DirectionalLight, PerspectiveCamera, Scene, Vector2, Vector3} from "three";
 import {useGoWasmLoaded} from "./GoWasmLoader";
 import Tiles, {BareTiles} from "./Tiles";
-import {OrbitControls} from '@react-three/drei'
+import Hud from "./Hud";
 
 export const HiveStateContext = createContext<HiveState | null>(null);
 export const useHiveStateContext = (): HiveState => {
@@ -20,9 +28,6 @@ export const useHiveStateContext = (): HiveState => {
 
 const GameplayOnline: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null!);
-    const directionalLightRef = useRef<DirectionalLight>(null!);
-    const goWasmLoaded = useGoWasmLoaded();
-    const {state: hiveState, placeTile} = useHiveGame(goWasmLoaded);
 
     useEffect(() => {
         const onResize = () => {
@@ -36,13 +41,20 @@ const GameplayOnline: React.FC = () => {
         return () => window.removeEventListener('resize', onResize);
     }, []);
 
-    useEffect(() => {
-        if (directionalLightRef.current != null) {
-            directionalLightRef.current.shadow.camera.lookAt(new Vector3(0, 0, 0));
-            directionalLightRef.current.shadow.camera.near = -100;
-        }
-    }, [directionalLightRef.current]);
+    return <div>
+        <Canvas gl={{ autoClear: false }} onCreated={state => state.gl.setClearColor(0x00ff00)} ref={canvasRef} camera={{position: [0, 0, 5]}} shadows>
+            <Hud />
+            <MainScene />
+        </Canvas>
+    </div>;
+};
 
+const MainScene: React.FC = () => {
+    const scene = useMemo(() => new Scene(), []);
+    const cameraRef = useRef<PerspectiveCamera>(null!);
+    const directionalLightRef = useRef<DirectionalLight>(null!);
+    const goWasmLoaded = useGoWasmLoaded();
+    const {state: hiveState, placeTile} = useHiveGame(goWasmLoaded);
     const onClickPlane = useCallback((e: ThreeEvent<MouseEvent>) => {
         if (!goWasmLoaded) {
             return
@@ -56,10 +68,26 @@ const GameplayOnline: React.FC = () => {
         }
     }, [goWasmLoaded]);
 
-    return <div>
-        <Canvas ref={canvasRef} camera={{position: [0, 0, 5]}} shadows>
-            <OrbitControls />
+    useEffect(() => {
+        if (directionalLightRef.current != null) {
+            directionalLightRef.current.shadow.camera.lookAt(new Vector3(0, 0, 0));
+            directionalLightRef.current.shadow.camera.near = -100;
+        }
+    }, [directionalLightRef.current]);
+
+    const {camera} = useThree();
+
+    useFrame(({gl}) => {
+        gl.setSize(window.innerWidth, window.innerHeight);
+        gl.clear();
+        gl.render(scene, camera);
+    }, 1);
+
+    return createPortal(
+        <>
+            {/*<OrbitControls/>*/}
             <CameraControls/>
+            <perspectiveCamera ref={cameraRef}/>
             <directionalLight
                 ref={directionalLightRef}
                 color={0xffffff}
@@ -79,12 +107,13 @@ const GameplayOnline: React.FC = () => {
                     roughness={0.5}/>
             </mesh>
             <HiveStateContext.Provider value={hiveState}>
-                <React.Suspense fallback={<BareTiles />}>
-                    <Tiles />
+                <React.Suspense fallback={<BareTiles/>}>
+                    <Tiles/>
                 </React.Suspense>
             </HiveStateContext.Provider>
-        </Canvas>
-    </div>;
+        </>,
+        scene
+    );
 };
 
 const CameraControls: React.FC = () => {
