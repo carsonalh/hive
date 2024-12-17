@@ -1,16 +1,8 @@
-import {Canvas, createPortal, ThreeEvent, useFrame, useThree} from "@react-three/fiber";
-import React, {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useRef,
-    useState
-} from "react";
+import {Canvas, ThreeEvent} from "@react-three/fiber";
+import React, {createContext, useCallback, useContext, useEffect, useRef, useState} from "react";
 import {HiveColor, HivePieceType, HiveState} from "../hive-game";
 import {HexGrid, HexVectorLike} from "../hex-grid";
-import {DirectionalLight, PerspectiveCamera, Scene, Vector2, Vector3} from "three";
+import {DirectionalLight, PerspectiveCamera, Vector2, Vector3} from "three";
 import {useGoWasmLoaded} from "./GoWasmLoader";
 import Tiles, {BareTiles} from "./Tiles";
 import HeadsUpDisplay from "./HeadsUpDisplay";
@@ -61,8 +53,6 @@ const MainScene: React.FC = () => {
         if (!goWasmLoaded || e.button !== LEFT_BUTTON) {
             return
         }
-
-        console.log('clicked in the main scene hehe')
 
         const hexGrid = new HexGrid();
         const point = new Vector2().copy(e.point);

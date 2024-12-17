@@ -1,6 +1,6 @@
-import React, {RefCallback, useDebugValue, useEffect, useMemo, useState} from 'react';
+import React, {RefCallback, useMemo} from 'react';
 import {ThreeEvent, useLoader} from "@react-three/fiber";
-import {CanvasTexture, ImageBitmapLoader, Object3D, Texture, TextureLoader, Vector3} from "three";
+import {CanvasTexture, Object3D, TextureLoader, Vector3} from "three";
 import {useHiveStateContext} from "./GameplayOnline";
 import {HiveColor, HivePieceType} from "../hive-game";
 import {HexGrid} from "../hex-grid";
@@ -27,7 +27,7 @@ const Tiles: React.FC = () => {
             meshRef={mesh => {
                 if (mesh == null) return;
                 mesh.position.copy(position3d);
-                mesh.scale.setScalar(RADIUS * Math.sqrt(3) / 2);
+                mesh.scale.setScalar(RADIUS * 2 / Math.sqrt(3));
                 meshes[i] = mesh;
             }}
             key={i}
@@ -50,15 +50,6 @@ namespace pbr {
 }
 
 namespace basic {
-    // export const WHITE_BACKGROUND = 0xEDE8D0;
-    // export const BLACK_BACKGROUND = 0x404040;
-    // export const QUEEN_BEE_COLOUR = 0xFDCF00;
-    // export const SOLDIER_ANT_COLOUR = 0x87C3F6;
-    // export const BEETLE_COLOUR = 0xBFA1ED;
-    // export const SPIDER_COLOUR = 0xC48120;
-    // export const GRASSHOPPER_COLOUR = 0x7FE262;
-    // export const LADYBUG_COLOUR = 0xE61717;
-    // export const MOSQUITO_COLOUR = 0xC8C8C8;
     export const WHITE_BACKGROUND = 0xffec8c;
     export const BLACK_BACKGROUND = 0x000000;
     export const QUEEN_BEE_COLOUR = 0xff6f00;
