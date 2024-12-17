@@ -1,10 +1,11 @@
 {
   "compilerOptions": {
-    "target": "ES5",
+    "target": "ES6",
     "module": "ESNext",
     "rootDir": "./src",
     "outDir": "./dist",
     "esModuleInterop": true,
+    "allowJs": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "jsx": "react",

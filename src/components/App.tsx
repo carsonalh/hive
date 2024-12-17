@@ -11,7 +11,7 @@ export const App: React.FC = () => {
             <BrowserRouter>
                 <Routes>
                     <Route index element={<Home/>}/>
-                    <Route path="local" element={<GameplayLocal/>} />
+                    <Route path="local" element={<GameplayLocal/>}/>
                     <Route path="online/*" element={<OnlineContainer/>}/>
                 </Routes>
             </BrowserRouter>

@@ -13,7 +13,9 @@ import {HexGrid, HexVectorLike} from "../hex-grid";
 import {DirectionalLight, PerspectiveCamera, Scene, Vector2, Vector3} from "three";
 import {useGoWasmLoaded} from "./GoWasmLoader";
 import Tiles, {BareTiles} from "./Tiles";
-import Hud from "./Hud";
+import HeadsUpDisplay from "./HeadsUpDisplay";
+import {LEFT_BUTTON} from "../constants";
+import {OrbitControls} from "@react-three/drei";
 
 export const HiveStateContext = createContext<HiveState | null>(null);
 export const useHiveStateContext = (): HiveState => {
@@ -27,46 +29,44 @@ export const useHiveStateContext = (): HiveState => {
 }
 
 const GameplayOnline: React.FC = () => {
-    const canvasRef = useRef<HTMLCanvasElement>(null!);
-
-    useEffect(() => {
-        const onResize = () => {
-            canvasRef.current.width = window.innerWidth;
-            canvasRef.current.height = window.innerHeight;
-        };
-
-        window.addEventListener('resize', onResize);
-        onResize();
-
-        return () => window.removeEventListener('resize', onResize);
-    }, []);
-
-    return <div>
-        <Canvas gl={{ autoClear: false }} onCreated={state => state.gl.setClearColor(0x00ff00)} ref={canvasRef} camera={{position: [0, 0, 5]}} shadows>
-            <Hud />
-            <MainScene />
+    return <div style={{
+        width: '100vw',
+        height: '100vh',
+    }}>
+        <Canvas
+            gl={{autoClear: false}}
+            onCreated={state => state.gl.setClearColor(0x00ff00)}
+            camera={{position: [0, 0, 5]}}
+            shadows>
+            <HeadsUpDisplay/>
+            <MainScene/>
         </Canvas>
     </div>;
 };
 
 const MainScene: React.FC = () => {
-    const scene = useMemo(() => new Scene(), []);
+    // const scene = useMemo(() => new Scene(), []);
     const cameraRef = useRef<PerspectiveCamera>(null!);
     const directionalLightRef = useRef<DirectionalLight>(null!);
     const goWasmLoaded = useGoWasmLoaded();
-    const {state: hiveState, placeTile} = useHiveGame(goWasmLoaded);
-    const onClickPlane = useCallback((e: ThreeEvent<MouseEvent>) => {
-        if (!goWasmLoaded) {
+    const {state: hiveState, placeTile, lastMoveSucceeded} = useHiveGame(goWasmLoaded);
+    const onPointerDownPlane = useCallback((e: ThreeEvent<PointerEvent>) => {
+        if (!goWasmLoaded || e.button !== LEFT_BUTTON) {
             return
         }
+
+        console.log('clicked in the main scene hehe')
 
         const hexGrid = new HexGrid();
         const point = new Vector2().copy(e.point);
         const hex = hexGrid.euclideanToHex(point);
-        if (!placeTile(HivePieceType.QueenBee, hex)) {
-            console.warn('allowed user to place an invalid move');
-        }
+        placeTile(HivePieceType.QueenBee, hex);
     }, [goWasmLoaded]);
+
+    useEffect(() => {
+        if (lastMoveSucceeded) return;
+        console.warn('Player tried to play an illegal move');
+    }, [lastMoveSucceeded]);
 
     useEffect(() => {
         if (directionalLightRef.current != null) {
@@ -75,64 +75,42 @@ const MainScene: React.FC = () => {
         }
     }, [directionalLightRef.current]);
 
-    const {camera} = useThree();
-
-    useFrame(({gl}) => {
-        gl.setSize(window.innerWidth, window.innerHeight);
-        gl.clear();
-        gl.render(scene, camera);
-    }, 1);
-
-    return createPortal(
-        <>
-            {/*<OrbitControls/>*/}
-            <CameraControls/>
-            <perspectiveCamera ref={cameraRef}/>
-            <directionalLight
-                ref={directionalLightRef}
-                color={0xffffff}
-                position={[-1, -1, 1]}
-                intensity={1}
-                castShadow/>
-            <ambientLight color={0xffffff} intensity={1}/>
-            <mesh
-                position={[0, 0, 0]}
-                rotation={[0, 0, Math.PI / 2]}
-                receiveShadow
-                onClick={onClickPlane}>
-                <planeGeometry args={[1000, 1000]}/>
-                <meshPhysicalMaterial
-                    color={0x5cc955}
-                    specularIntensity={0}
-                    roughness={0.5}/>
-            </mesh>
-            <HiveStateContext.Provider value={hiveState}>
-                <React.Suspense fallback={<BareTiles/>}>
-                    <Tiles/>
-                </React.Suspense>
-            </HiveStateContext.Provider>
-        </>,
-        scene
-    );
-};
-
-const CameraControls: React.FC = () => {
-    const {camera} = useThree();
-
-    useEffect(() => {
-        camera.up.set(0, 1, 0);
-        camera.lookAt(new Vector3(0, 0, 0));
-    }, []);
-
-    return false;
+    return <scene>
+        <OrbitControls enablePan={false}/>
+        <perspectiveCamera ref={cameraRef}/>
+        <directionalLight
+            ref={directionalLightRef}
+            color={0xffffff}
+            position={[-1 / Math.sqrt(3), 1 / Math.sqrt(3), 1 / Math.sqrt(3)]}
+            intensity={1}
+            castShadow/>
+        <ambientLight color={0xffffff} intensity={1}/>
+        <mesh
+            position={[0, 0, 0]}
+            rotation={[0, 0, Math.PI / 2]}
+            receiveShadow
+            onPointerDown={onPointerDownPlane}>
+            <planeGeometry args={[1000, 1000]}/>
+            <meshPhysicalMaterial
+                color={0x5cc955}
+                specularIntensity={0.8}
+                roughness={0.5}/>
+        </mesh>
+        <HiveStateContext.Provider value={hiveState}>
+            <React.Suspense fallback={<BareTiles/>}>
+                <Tiles/>
+            </React.Suspense>
+        </HiveStateContext.Provider>
+    </scene>;
 };
 
 const useHiveGame = (ready: boolean): {
     state: HiveState,
-    placeTile: (pieceType: HivePieceType, position: HexVectorLike) => boolean,
-    moveTile: (from: HexVectorLike, to: HexVectorLike) => boolean,
+    placeTile: (pieceType: HivePieceType, position: HexVectorLike) => void,
+    moveTile: (from: HexVectorLike, to: HexVectorLike) => void,
+    lastMoveSucceeded: boolean,
 } => {
-    const [state, setState] = useState<HiveState>({
+    const [state, setState] = useState<[HiveState, lastMoveSuccess: boolean]>([{
         blackReserve: {
             QUEEN_BEE: 1,
             SOLDIER_ANT: 2,
@@ -154,30 +132,24 @@ const useHiveGame = (ready: boolean): {
         tiles: [],
         colorToMove: HiveColor.Black,
         move: 1,
-    });
+    }, true]);
 
     useEffect(() => {
         if (!ready) return;
 
-        setState(hive.createHiveGame());
+        setState([hive.createHiveGame(), true]);
     }, [ready]);
 
     return {
-        state,
+        state: state[0],
         placeTile: (pieceType, position) => {
             if (!ready) {
                 throw new Error('useHiveGame(): cannot mutate state before ready');
             }
 
-            let success = false;
-
             setState(prev => {
-                let state: HiveState;
-                [state, success] = hive.placeTile(prev, pieceType, position);
-                return state;
+                return hive.placeTile(prev[0], pieceType, position);
             });
-
-            return success;
         },
         moveTile: (from, to) => {
             if (!ready) {
@@ -188,10 +160,11 @@ const useHiveGame = (ready: boolean): {
                 throw new Error('useHiveGame(): cannot mutate state before ready');
             }
 
-            const [newState, success] = hive.moveTile(state, from, to);
-            setState(newState);
-            return success;
+            setState(prev => {
+                return hive.moveTile(prev[0], from, to);
+            });
         },
+        lastMoveSucceeded: state[1],
     };
 }
 

@@ -365,13 +365,13 @@ class Hud {
             if (this.moveIndicator.classList.contains('white')) {
                 this.moveIndicator.classList.remove('white');
             }
-            this.moveIndicator.classList.add('black');
+            this.moveIndicator.classList.remove('black');
         } else {
             this.moveIndicator.textContent = 'White to Move';
             if (this.moveIndicator.classList.contains('black')) {
                 this.moveIndicator.classList.remove('black');
             }
-            this.moveIndicator.classList.add('white');
+            this.moveIndicator.classList.remove('white');
         }
 
         const screen = new THREE.Vector2();
