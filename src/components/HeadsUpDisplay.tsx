@@ -1,4 +1,12 @@
-import React, {MutableRefObject, useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, {
+    MutableRefObject,
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState
+} from 'react';
 import {
     Mesh,
     Object3D,
@@ -7,19 +15,19 @@ import {
     ShapeGeometry,
     Vector2,
     Vector3,
-    OrthographicCamera as ThreeOrthographicCamera
+    OrthographicCamera as ThreeOrthographicCamera, Matrix4, Matrix3, Quaternion
 } from "three";
 import {ThreeEvent, useFrame, useThree} from "@react-three/fiber";
 import {screenToNdc} from "../util";
 import {Tile} from "./Tiles";
 import {HiveColor, HivePieceType} from "../hive-game";
 import {RADIUS} from "../constants";
-import {Hud, OrthographicCamera} from "@react-three/drei";
+import {Html, Hud, OrthographicCamera} from "@react-three/drei";
 
 const TILE_GAP_PX = 20;
 const HORIZONTAL_PADDING_PX = 30;
 const MOVE_INDICATOR_PADDING_TOP_PX = 30;
-const MARKER_WIDTH_PX = 4;
+const MARKER_WIDTH_PX = 8;
 const BUBBLE_RADIUS_PX = 15;
 
 const NUM_TILES = 7;
@@ -29,14 +37,27 @@ const NUM_TILES = 7;
 // not supposed to work in the <Canvas /> context.  We'll create a portal somewhere outside of <Canvas /> in OnlineContainer or App or something.
 
 export interface HudProps {
-    selectedPieceType?: HivePieceType | null;
-    setSelectedPieceType?: (value: HivePieceType | null) => unknown;
+    onSelectedChange?: (value: HivePieceType | null) => unknown;
+    pieceCounts: Record<HivePieceType, number>;
 }
 
 const HeadsUpDisplay: React.FC<HudProps> = props => {
-    const scene = useMemo(() => new Scene(), []);
+    const size = useThree(({size}) => size);
+
+    return <Hud renderPriority={1}>
+        <OrthographicCamera
+            makeDefault
+            left={-1}
+            right={1}
+            bottom={-size.height / size.width}
+            top={size.height / size.width}
+            position={[0, 0, 5]}/>
+        <HudScene {...props} />
+    </Hud>;
+};
+
+const HudScene: React.FC<HudProps> = props => {
     const planeRef = useRef<Mesh>(null!);
-    const cameraRef = useRef<ThreeOrthographicCamera>(null!);
     const tileMeshes = useMemo<Object3D[]>(
         () => Array.from({length: 7}, () => null!),
         []
@@ -56,93 +77,137 @@ const HeadsUpDisplay: React.FC<HudProps> = props => {
 
         return new ShapeGeometry(shape);
     }, []);
-    const tileBackgroundRefs = useMemo<MutableRefObject<Mesh>[]>(
-        () => Array.from({length: 7}, () => ({current: null!})),
+    const tileBackgroundMeshes = useMemo<Mesh[]>(
+        () => Array.from({length: 7}, () => null!),
+        []
+    );
+    const bubbleMeshes = useMemo<Mesh[]>(
+        () => Array.from({length: 7}, () => null!),
         []
     );
     const markerRef = useRef<Mesh>(null!);
 
     const [selectedPieceType, setSelectedPieceType] = useState<HivePieceType | null>(null);
 
-    const {size, events} = useThree();
+    const size = useThree(({size}) => size);
 
-    const resizeObjects = () => {
-        const width = window.innerWidth;
-        const height = window.innerHeight;
+    const [translateToCamera] = useState(() => new Matrix4());
+    const [scaleToCamera] = useState(() => new Matrix3());
+
+    useLayoutEffect(() => {
+        // const {innerWidth: width, innerHeight: height} = window;
+        const {width, height} = size;
+
+        translateToCamera.set(
+            2 / width, 0, 0, -1,
+            0, -2 / width, 0, height / width,
+            0, 0, 1, 0,
+            0, 0, 0, 1
+        );
+
+        scaleToCamera.set(
+            2 / width, 0, 0,
+            0, 2 / width, 0,
+            0, 0, 2 / width
+        );
+
+        // const camera = cameraRef.current;
         const tileInnerDiameterPx = (height - ((NUM_TILES + 1) * TILE_GAP_PX)) / NUM_TILES;
         const tileOuterDiameterPx = tileInnerDiameterPx * 2 / Math.sqrt(3);
         const containerWidthPx = tileOuterDiameterPx + 2 * HORIZONTAL_PADDING_PX;
-        const containerWidthVecNdc = new Vector2();
-        screenToNdc(new Vector2(containerWidthPx + width / 2, size.height / 2), containerWidthVecNdc);
-        const containerWidthVec3Ndc = new Vector3().copy({...containerWidthVecNdc, z: 0});
-        const camera = cameraRef.current;
-        const containerWidthWorld = containerWidthVec3Ndc.applyMatrix4(camera.projectionMatrixInverse).x;
-        planeRef.current.position.x = -5 + containerWidthWorld / 2;
-        planeRef.current.scale.y = 10 * size.height / size.width;
-        planeRef.current.scale.x = containerWidthWorld;
-
-        const tileGapVecNdc = new Vector2();
-        screenToNdc(new Vector2(width / 2, -TILE_GAP_PX + size.height / 2), tileGapVecNdc);
-        const tileGapVec3Ndc = new Vector3().copy({...tileGapVecNdc, z: 0});
-        const tileGapWorld = tileGapVec3Ndc.applyMatrix4(camera.projectionMatrixInverse).y;
-        const tileOuterDiameterWorld = tileOuterDiameterPx * tileGapWorld / TILE_GAP_PX;
-
-        const markerWidthNdc = new Vector2(MARKER_WIDTH_PX * 2 / window.innerWidth);
-        const markerWorld = new Vector3(markerWidthNdc.x, markerWidthNdc.y, 0);
-        markerWorld.applyMatrix4(camera.projectionMatrixInverse);
-        const markerWidthWorld = markerWorld.x;
-        // markerRef.current.scale.setScalar((tileOuterDiameterWorld/2 * Math.sqrt(3) / 2 + markerWidthWorld) / RADIUS);
-        markerRef.current.scale.setScalar(2);
-        markerRef.current.visible = selectedPieceType != null;
-        if (selectedPieceType != null) {
-            // console.log('setting marker position');
-            markerRef.current.position.set(
-                HORIZONTAL_PADDING_PX + tileOuterDiameterPx / 2,
-                (TILE_GAP_PX + tileInnerDiameterPx) * selectedPieceType + (TILE_GAP_PX + tileInnerDiameterPx / 2),
-                0
-            );
-        }
+        planeRef.current.position.x = containerWidthPx / 2;
+        planeRef.current.position.y = height / 2;
+        planeRef.current.position.applyMatrix4(translateToCamera);
+        planeRef.current.scale.y = height;
+        planeRef.current.scale.x = containerWidthPx;
+        planeRef.current.scale.applyMatrix3(scaleToCamera);
 
         for (let i = 0; i < tileMeshes.length; i++) {
-            let mesh: Object3D;
-            if ((mesh = tileMeshes[i]) == null) {
-                continue;
-            }
+            tileMeshes[i].position.x = containerWidthPx / 2;
+            tileMeshes[i].position.y = (TILE_GAP_PX + tileInnerDiameterPx) * (i + 1) - tileInnerDiameterPx / 2;
+            tileMeshes[i].position.z = 1;
+            tileMeshes[i].position.applyMatrix4(translateToCamera);
+            tileMeshes[i].scale.setScalar(tileOuterDiameterPx / 2);
+            tileMeshes[i].scale.applyMatrix3(scaleToCamera);
 
-            const pos = mesh.position;
-
-            pos.x = HORIZONTAL_PADDING_PX + tileOuterDiameterPx / 2;
-            pos.y = (TILE_GAP_PX + tileInnerDiameterPx) * i + (TILE_GAP_PX + tileInnerDiameterPx / 2);
-
-            const posNdc = new Vector2();
-            screenToNdc(pos, posNdc);
-
-            const inUnitFrustum = new Vector3().copy({...posNdc, z: 0});
-            pos.copy(inUnitFrustum.applyMatrix4(camera.projectionMatrixInverse).setZ(0));
-
-            if (tileBackgroundRefs[i].current != null) {
-                tileBackgroundRefs[i].current.visible = true;
-                tileBackgroundRefs[i].current.position.copy(inUnitFrustum);
-                tileBackgroundRefs[i].current.scale.setScalar(tileOuterDiameterWorld / 2);
-            }
-
-            mesh.scale.setScalar(tileOuterDiameterWorld / 2);
-            mesh.rotation.set(0, 0, 1 / 12 * Math.PI * 2, "XYZ");
+            tileBackgroundMeshes[i].position.copy(tileMeshes[i].position).setZ(.5);
+            tileBackgroundMeshes[i].scale.copy(tileMeshes[i].scale);
         }
 
-        camera.top = 5 * size.height / size.width;
-        camera.bottom = -5 * size.height / size.width;
-        camera.updateProjectionMatrix();
-        camera.lookAt(new Vector3());
-    };
+        if (selectedPieceType != null) {
+            markerRef.current.position.x = containerWidthPx / 2;
+            markerRef.current.position.y = (TILE_GAP_PX + tileInnerDiameterPx) * (selectedPieceType + 1) - tileInnerDiameterPx / 2;
+            markerRef.current.position.z = 0.75;
+            markerRef.current.position.applyMatrix4(translateToCamera);
 
-    useFrame(() => {
-        resizeObjects();
-    });
+            markerRef.current.scale.setScalar(tileOuterDiameterPx / 2 + MARKER_WIDTH_PX * 2 / Math.sqrt(3));
+            markerRef.current.scale.applyMatrix3(scaleToCamera);
+        }
+    }, [size, selectedPieceType]);
+
+    useEffect(() => {
+        for (let i = 0; i < tileMeshes.length; i++) {
+            tileMeshes[i].rotation.set(0, 0, Math.PI / 6);
+        }
+    }, []);
+
+    useEffect(() => {
+        markerRef.current.visible = selectedPieceType != null;
+    }, [selectedPieceType]);
+
+    useEffect(() => {
+        const {width, height} = size;
+
+        const tileInnerDiameterPx = (height - ((NUM_TILES + 1) * TILE_GAP_PX)) / NUM_TILES;
+        const tileOuterDiameterPx = tileInnerDiameterPx * 2 / Math.sqrt(3);
+
+        const offset = new Vector3();
+
+        for (const [pieceType, count] of Object.entries(props.pieceCounts)) {
+            const index = Number(pieceType)
+            tileMeshes[index].visible = count > 0;
+
+            bubbleMeshes[index].visible = count > 1;
+            bubbleMeshes[index].position.set(tileOuterDiameterPx / 2, 0, 0);
+            bubbleMeshes[index].position.applyQuaternion(
+                new Quaternion()
+                    .setFromAxisAngle({x: 0, y: 0, z: 1}, -45 * Math.PI / 180)
+            );
+
+            offset.copy(tileMeshes[index].position);
+            translateToCamera.invert();
+            offset.applyMatrix4(translateToCamera);
+            translateToCamera.invert();
+
+            bubbleMeshes[index].position.add(offset);
+
+            if (bubbleElements[index] != null) {
+                bubbleElements[index].style.left = `${bubbleMeshes[index].position.x - width/2}px`;
+                bubbleElements[index].style.top = `${bubbleMeshes[index].position.y - height/2}px`;
+            }
+
+            bubbleMeshes[index].position.applyMatrix4(translateToCamera).setZ(3);
+
+            bubbleMeshes[index].scale.setScalar(BUBBLE_RADIUS_PX).applyMatrix3(scaleToCamera);
+        }
+    }, [props.pieceCounts, size]);
+
+    const bubbleElements = useMemo<HTMLDivElement[]>(() => Array.from({length: 7}, () => null!), []);
+
+    const bubbleTexts = useMemo(() => Object
+            .entries(props.pieceCounts)
+            .map(([t, c]) => [Number(t), c > 1 ? `x${c}` : ''] as const)
+            .sort(([t0], [t1]) => t0 - t1)
+            .map(([, c]) => c),
+        []
+    );
 
     const createOnPointerDown = (pieceType: HivePieceType) => (e: ThreeEvent<PointerEvent>) => {
+        if (!tileMeshes[pieceType].visible) return;
+
         e.stopPropagation();
         setSelectedPieceType(pieceType);
+        props.onSelectedChange && props.onSelectedChange(pieceType);
     };
 
     const onPointerDownQueenBee = useCallback(createOnPointerDown(HivePieceType.QueenBee), []);
@@ -153,12 +218,22 @@ const HeadsUpDisplay: React.FC<HudProps> = props => {
     const onPointerDownLadybug = useCallback(createOnPointerDown(HivePieceType.Ladybug), []);
     const onPointerDownMosquito = useCallback(createOnPointerDown(HivePieceType.Mosquito), []);
 
-    return <Hud renderPriority={1}>
-        <OrthographicCamera makeDefault ref={cameraRef} left={-5} right={5} position={[0, 0, 5]}/>
-        <mesh ref={planeRef} onPointerDown={e => e.stopPropagation()}>
+    const onPointerDownContainer = useCallback((e: ThreeEvent<PointerEvent>) => {
+        e.stopPropagation();
+        setSelectedPieceType(null);
+        props.onSelectedChange && props.onSelectedChange(null);
+    }, []);
+
+    return <>
+        {/*UI Container*/}
+
+        <mesh ref={planeRef} onPointerDown={onPointerDownContainer}>
             <planeGeometry args={[1, 1]}/>
             <meshBasicMaterial color={0x353232}/>
         </mesh>
+
+        {/*Tiles*/}
+
         <Tile
             meshRef={mesh => mesh != null && (tileMeshes[0] = mesh)}
             basic
@@ -201,31 +276,86 @@ const HeadsUpDisplay: React.FC<HudProps> = props => {
             color={HiveColor.Black}
             pieceType={HivePieceType.Mosquito}
             onPointerDown={onPointerDownMosquito}/>
-        <mesh visible={false} geometry={hexagonGeometry} ref={tileBackgroundRefs[0]}>
+
+        {/* Background Meshes */}
+
+        <mesh geometry={hexagonGeometry}
+              ref={mesh => mesh != null && (tileBackgroundMeshes[0] = mesh)}>
             <meshBasicMaterial color={0x252323}/>
         </mesh>
-        <mesh visible={false} geometry={hexagonGeometry} ref={tileBackgroundRefs[1]}>
+        <mesh geometry={hexagonGeometry}
+              ref={mesh => mesh != null && (tileBackgroundMeshes[1] = mesh)}>
             <meshBasicMaterial color={0x252323}/>
         </mesh>
-        <mesh visible={false} geometry={hexagonGeometry} ref={tileBackgroundRefs[2]}>
+        <mesh geometry={hexagonGeometry}
+              ref={mesh => mesh != null && (tileBackgroundMeshes[2] = mesh)}>
             <meshBasicMaterial color={0x252323}/>
         </mesh>
-        <mesh visible={false} geometry={hexagonGeometry} ref={tileBackgroundRefs[3]}>
+        <mesh geometry={hexagonGeometry}
+              ref={mesh => mesh != null && (tileBackgroundMeshes[3] = mesh)}>
             <meshBasicMaterial color={0x252323}/>
         </mesh>
-        <mesh visible={false} geometry={hexagonGeometry} ref={tileBackgroundRefs[4]}>
+        <mesh geometry={hexagonGeometry}
+              ref={mesh => mesh != null && (tileBackgroundMeshes[4] = mesh)}>
             <meshBasicMaterial color={0x252323}/>
         </mesh>
-        <mesh visible={false} geometry={hexagonGeometry} ref={tileBackgroundRefs[5]}>
+        <mesh geometry={hexagonGeometry}
+              ref={mesh => mesh != null && (tileBackgroundMeshes[5] = mesh)}>
             <meshBasicMaterial color={0x252323}/>
         </mesh>
-        <mesh visible={false} geometry={hexagonGeometry} ref={tileBackgroundRefs[6]}>
+        <mesh geometry={hexagonGeometry}
+              ref={mesh => mesh != null && (tileBackgroundMeshes[6] = mesh)}>
             <meshBasicMaterial color={0x252323}/>
         </mesh>
+
+        {/*Bubble Meshes*/}
+
+        <mesh visible={false} geometry={hexagonGeometry}
+              ref={mesh => mesh != null && (bubbleMeshes[0] = mesh)}>
+            <meshBasicMaterial color={0xffffff}/>
+        </mesh>
+        <mesh visible={false} geometry={hexagonGeometry}
+              ref={mesh => mesh != null && (bubbleMeshes[1] = mesh)}>
+            <meshBasicMaterial color={0xffffff}/>
+        </mesh>
+        <mesh visible={false} geometry={hexagonGeometry}
+              ref={mesh => mesh != null && (bubbleMeshes[2] = mesh)}>
+            <meshBasicMaterial color={0xffffff}/>
+        </mesh>
+        <mesh visible={false} geometry={hexagonGeometry}
+              ref={mesh => mesh != null && (bubbleMeshes[3] = mesh)}>
+            <meshBasicMaterial color={0xffffff}/>
+        </mesh>
+        <mesh visible={false} geometry={hexagonGeometry}
+              ref={mesh => mesh != null && (bubbleMeshes[4] = mesh)}>
+            <meshBasicMaterial color={0xffffff}/>
+        </mesh>
+        <mesh visible={false} geometry={hexagonGeometry}
+              ref={mesh => mesh != null && (bubbleMeshes[5] = mesh)}>
+            <meshBasicMaterial color={0xffffff}/>
+        </mesh>
+        <mesh visible={false} geometry={hexagonGeometry}
+              ref={mesh => mesh != null && (bubbleMeshes[6] = mesh)}>
+            <meshBasicMaterial color={0xffffff}/>
+        </mesh>
+
+        {/*Bubble Elements*/}
+
+        <Html center ref={e => (bubbleElements[0] = e!)}>{bubbleTexts[0]}</Html>
+        <Html center ref={e => (bubbleElements[1] = e!)}>{bubbleTexts[1]}</Html>
+        <Html center ref={e => (bubbleElements[2] = e!)}>{bubbleTexts[2]}</Html>
+        <Html center ref={e => (bubbleElements[3] = e!)}>{bubbleTexts[3]}</Html>
+        <Html center ref={e => (bubbleElements[4] = e!)}>{bubbleTexts[4]}</Html>
+        <Html center ref={e => (bubbleElements[5] = e!)}>{bubbleTexts[5]}</Html>
+        <Html center ref={e => (bubbleElements[6] = e!)}>{bubbleTexts[6]}</Html>
+
+        {/*Marker*/}
+
         <mesh ref={markerRef} visible={false} geometry={hexagonGeometry}>
             <meshBasicMaterial color={0x474545}/>
         </mesh>
-    </Hud>;
+    </>;
+
 };
 
 export default HeadsUpDisplay;

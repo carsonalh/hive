@@ -38,14 +38,21 @@ const GameplayOnline: React.FC = () => {
             onCreated={state => state.gl.setClearColor(0x00ff00)}
             camera={{position: [0, 0, 5]}}
             shadows>
-            <HeadsUpDisplay/>
+            <HeadsUpDisplay pieceCounts={{
+                [HivePieceType.QueenBee]: 1,
+                [HivePieceType.SoldierAnt]: 3,
+                [HivePieceType.Grasshopper]: 0,
+                [HivePieceType.Spider]: 2,
+                [HivePieceType.Beetle]: 1,
+                [HivePieceType.Ladybug]: 0,
+                [HivePieceType.Mosquito]: 1,
+            }}/>
             <MainScene/>
         </Canvas>
     </div>;
 };
 
 const MainScene: React.FC = () => {
-    // const scene = useMemo(() => new Scene(), []);
     const cameraRef = useRef<PerspectiveCamera>(null!);
     const directionalLightRef = useRef<DirectionalLight>(null!);
     const goWasmLoaded = useGoWasmLoaded();
@@ -75,7 +82,7 @@ const MainScene: React.FC = () => {
         }
     }, [directionalLightRef.current]);
 
-    return <scene>
+    return <>
         <OrbitControls enablePan={false}/>
         <perspectiveCamera ref={cameraRef}/>
         <directionalLight
@@ -101,7 +108,7 @@ const MainScene: React.FC = () => {
                 <Tiles/>
             </React.Suspense>
         </HiveStateContext.Provider>
-    </scene>;
+    </>;
 };
 
 const useHiveGame = (ready: boolean): {
