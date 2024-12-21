@@ -10,9 +10,10 @@ module.exports = (_, argv) => {
     output: {
       filename: 'bundle.js',
       path: path.resolve(__dirname, 'dist'),
+      publicPath: '/',
     },
     resolve: {
-      extensions: ['.ts', '.js'],
+      extensions: ['.ts', '.js', '.tsx'],
       alias: {
         'configuration': path.resolve(__dirname, isProduction
             ? './src/configuration-production.ts'
@@ -22,7 +23,7 @@ module.exports = (_, argv) => {
     module: {
       rules: [
         {
-          test: /\.ts$/,
+          test: /\.tsx?$/,
           use: 'ts-loader',
           exclude: /node_modules/,
         },
@@ -39,6 +40,7 @@ module.exports = (_, argv) => {
         path.join(__dirname, 'dist'),
         path.join(__dirname, 'res'),
       ],
+      historyApiFallback: true,
       compress: true,
       port: 9000,
       hot: true,

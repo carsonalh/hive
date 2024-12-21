@@ -6,37 +6,30 @@ import {MouseState} from "./mouse-state";
 import {LEFT_BUTTON} from "./constants";
 import OnlineClient, {Move} from "./online-client";
 import {GameplayScene} from "./gameplay-scene";
-import OnlineOverlay from "./online-overlay";
 
 export default class OnlineScene implements GameplayScene {
-    private readonly client: OnlineClient;
+    private readonly _client: OnlineClient;
     private playerColor: HiveColor = HiveColor.Black;
 
     public static async create(): Promise<OnlineScene> {
-        const overlay = new OnlineOverlay();
-        overlay.show();
-
         const hiveScene = await HiveScene.createWithBlankGame();
-        const onlineScene = new OnlineScene(hiveScene, new Hud(), overlay);
-        overlay.setClient(onlineScene.client);
-        await onlineScene.client.join();
+        const onlineScene = new OnlineScene(hiveScene, new Hud());
+        await onlineScene._client.join();
 
         return onlineScene;
     }
 
-    private constructor(private hiveScene: HiveScene, private hud: Hud, private overlay: OnlineOverlay) {
-        this.client = new OnlineClient({
-            connectHandler: this.onConnect.bind(this),
-            receiveMoveHandler: this.onReceiveMove.bind(this),
-            connectionCloseHandler: this.onOpponentDisconnect.bind(this),
-            opponentReconnectHandler: this.onOpponentReconnect.bind(this),
-        });
+    private constructor(private hiveScene: HiveScene, private hud: Hud) {
+        this._client = new OnlineClient();
+        this._client.addConnectHandler(this.onConnect.bind(this));
+        this._client.addReceiveMoveHandler(this.onReceiveMove.bind(this));
+        this._client.addConnectionCloseHandler(this.onOpponentDisconnect.bind(this));
+        this._client.addOpponentReconnectHandler(this.onOpponentReconnect.bind(this));
     }
 
     private onConnect(color: HiveColor): void {
         this.playerColor = color;
         this.updateHud();
-        this.overlay.hide();
     }
 
     private onReceiveMove(move: Move): void {
@@ -99,12 +92,12 @@ export default class OnlineScene implements GameplayScene {
 
                 if (this.hud.selectedPieceType != null) {
                     if (isOurTurn && this.hiveScene.placePiece(this.hud.selectedPieceType, hit)) {
-                        this.client.placePiece(this.hud.selectedPieceType, hit);
+                        this._client.placePiece(this.hud.selectedPieceType, hit);
                         this.updateHud();
                     }
                 } else if (this.hiveScene.selected != null) {
                     if (isOurTurn && this.hiveScene.movePiece(this.hiveScene.selected, hit)) {
-                        this.client.movePiece(this.hiveScene.selected, hit);
+                        this._client.movePiece(this.hiveScene.selected, hit);
                     }
                 } else {
                     this.hiveScene.select(hit);
@@ -136,12 +129,16 @@ export default class OnlineScene implements GameplayScene {
     }
 
     public cleanup() {
-        this.client.close();
+        this._client.close();
         this.hud.clearDomElements();
     }
 
     public onMouseMove(e: MouseEvent, state: MouseState): void {
         this.hiveScene.onMouseMove(e, state);
+    }
+
+    public get client(): OnlineClient {
+        return this._client;
     }
 
     public get scene(): THREE.Scene {

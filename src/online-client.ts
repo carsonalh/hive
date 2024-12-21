@@ -12,15 +12,6 @@ export type Move = {
     to: HexVector,
 };
 
-export interface OnlineClientOptions {
-    receiveMoveHandler?: (move: Move) => unknown;
-    connectHandler?: (color: HiveColor) => unknown;
-    connectionCloseHandler?: () => unknown;
-    opponentDisconnectHandler?: () => unknown;
-    opponentReconnectHandler?: () => unknown;
-    gameCompletedHandler?: (won: boolean) => unknown;
-}
-
 export default class OnlineClient {
     private session: {
         token: string,
@@ -31,20 +22,38 @@ export default class OnlineClient {
             nextMove: HiveColor,
         } | null,
     } | null = null;
-    private readonly receiveMoveHandler: (move: Move) => unknown;
-    private readonly connectHandler: (color: HiveColor) => unknown;
-    private readonly connectionCloseHandler: () => unknown;
-    private readonly opponentDisconnectHandler: () => unknown;
-    private readonly opponentReconnectHandler: () => unknown;
-    private readonly gameCompletedHandler: (won: boolean) => unknown;
+    private readonly receiveMoveHandlers: ((move: Move) => unknown)[] = [];
+    private readonly connectHandlers: ((color: HiveColor) => unknown)[] = [];
+    private readonly connectionCloseHandlers: (() => unknown)[] = [];
+    private readonly opponentDisconnectHandlers: (() => unknown)[] = [];
+    private readonly opponentReconnectHandlers: (() => unknown)[] = [];
+    private readonly gameCompletedHandlers: ((won: boolean) => unknown)[] = [];
 
-    public constructor(options?: OnlineClientOptions) {
-        this.receiveMoveHandler = options?.receiveMoveHandler ?? (() => {});
-        this.connectHandler = options?.connectHandler ?? (() => {});
-        this.connectionCloseHandler = options?.connectionCloseHandler ?? (() => {});
-        this.opponentDisconnectHandler = options?.opponentDisconnectHandler ?? (() => {});
-        this.opponentReconnectHandler = options?.opponentReconnectHandler ?? (() => {});
-        this.gameCompletedHandler = options?.gameCompletedHandler ?? (() => {});
+    public constructor() {
+    }
+
+    public addReceiveMoveHandler(handler: (move: Move) => unknown): void {
+        this.receiveMoveHandlers.push(handler)
+    }
+
+    public addConnectHandler(handler: (color: HiveColor) => unknown): void {
+        this.connectHandlers.push(handler)
+    }
+
+    public addConnectionCloseHandler(handler: () => unknown): void {
+        this.connectionCloseHandlers.push(handler)
+    }
+
+    public addOpponentDisconnectHandler(handler: () => unknown): void {
+        this.opponentDisconnectHandlers.push(handler)
+    }
+
+    public addOpponentReconnectHandler(handler: () => unknown): void {
+        this.opponentReconnectHandlers.push(handler)
+    }
+
+    public addGameCompletedHandler(handler: (won: boolean) => unknown): void {
+        this.gameCompletedHandlers.push(handler)
     }
 
     public async join(): Promise<void> {
@@ -108,7 +117,9 @@ export default class OnlineClient {
         });
 
         socket.addEventListener('close', () => {
-            this.connectionCloseHandler();
+            for (const handler of this.connectionCloseHandlers) {
+                handler();
+            }
         });
 
         socket.addEventListener('message', event => {
@@ -181,7 +192,9 @@ export default class OnlineClient {
             case "CONNECT": {
                 const c: HiveColor = response.connect.color;
                 this.session.game.color = c;
-                this.connectHandler(c);
+                for (const handler of this.connectHandlers) {
+                    handler(c);
+                }
                 break;
             }
             case "PLAY_MOVE":
@@ -189,11 +202,13 @@ export default class OnlineClient {
                     case "MOVE": {
                         const from = new HexVector(response.move.movement.from.q, response.move.movement.from.r);
                         const to = new HexVector(response.move.movement.to.q, response.move.movement.to.r);
-                        this.receiveMoveHandler({
-                            moveType: "MOVE",
-                            from,
-                            to,
-                        });
+                        for (const handler of this.receiveMoveHandlers) {
+                            handler({
+                                moveType: "MOVE",
+                                from,
+                                to,
+                            });
+                        }
                         break;
                     }
                     case "PLACE": {
@@ -209,11 +224,13 @@ export default class OnlineClient {
                             throw new Error('did not recognise piece type sent from server');
                         }
                         const position = new HexVector(response.move.placement.position.q, response.move.placement.position.r);
-                        this.receiveMoveHandler({
-                            moveType: "PLACE",
-                            pieceType,
-                            position,
-                        });
+                        for (const handler of this.receiveMoveHandlers) {
+                            handler({
+                                moveType: "PLACE",
+                                pieceType,
+                                position,
+                            });
+                        }
                         break;
                     }
                 }
@@ -221,13 +238,19 @@ export default class OnlineClient {
             case "REJECT_MOVE":
                 throw new Error('Either the server is lying or we gave an illegal move');
             case "DISCONNECT":
-                this.opponentDisconnectHandler();
+                for (const handler of this.opponentDisconnectHandlers) {
+                    handler();
+                }
                 break;
             case "RECONNECT":
-                this.opponentReconnectHandler();
+                for (const handler of this.opponentReconnectHandlers) {
+                    handler();
+                }
                 break;
             case "GAME_COMPLETED":
-                this.gameCompletedHandler(response.complete.won);
+                for (const handler of this.gameCompletedHandlers) {
+                    handler(response.complete.won);
+                }
                 break;
         }
     }
