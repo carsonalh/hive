@@ -1,14 +1,14 @@
 import {Canvas, ThreeEvent} from "@react-three/fiber";
 import React, {useCallback, useEffect, useRef, useState} from "react";
-import {HiveColor, HivePieceType, HiveState} from "../hive-game";
-import {HexGrid, HexVectorLike} from "../hex-grid";
+import {HivePieceType} from "../hive-game";
+import {HexGrid} from "../hex-grid";
 import {DirectionalLight, PerspectiveCamera, Vector2, Vector3} from "three";
 import {useGoWasmLoaded} from "./GoWasmLoader";
 import Tiles, {BareTiles} from "./Tiles";
 import HeadsUpDisplay from "./HeadsUpDisplay";
 import {LEFT_BUTTON} from "../constants";
 import {OrbitControls} from "@react-three/drei";
-import {HiveStateContext, useHiveStateContext} from "./HiveStateContext";
+import {HiveStateContext, useHiveGame, useHiveStateContext} from "./HiveStateContext";
 
 const GameplayLocal: React.FC = () => {
     const loaded = useGoWasmLoaded();
@@ -92,65 +92,5 @@ const MainScene: React.FC<{ selected: HivePieceType | null }> = ({selected}) => 
         </React.Suspense>
     </>;
 };
-
-const useHiveGame = (ready: boolean): {
-    state: HiveState,
-    placeTile: (pieceType: HivePieceType, position: HexVectorLike) => void,
-    moveTile: (from: HexVectorLike, to: HexVectorLike) => void,
-    lastMoveSucceeded: boolean,
-} => {
-    const [state, setState] = useState<[HiveState, lastMoveSuccess: boolean]>([{
-        blackReserve: {
-            QUEEN_BEE: 1,
-            SOLDIER_ANT: 2,
-            GRASSHOPPER: 3,
-            SPIDER: 2,
-            BEETLE: 2,
-            LADYBUG: 1,
-            MOSQUITO: 1,
-        },
-        whiteReserve: {
-            QUEEN_BEE: 1,
-            SOLDIER_ANT: 2,
-            GRASSHOPPER: 3,
-            SPIDER: 2,
-            BEETLE: 2,
-            LADYBUG: 1,
-            MOSQUITO: 1,
-        },
-        tiles: [],
-        colorToMove: HiveColor.Black,
-        move: 1,
-    }, true]);
-
-    useEffect(() => {
-        if (!ready) return;
-
-        setState([hive.createHiveGame(), true]);
-    }, [ready]);
-
-    return {
-        state: state[0],
-        placeTile: (pieceType, position) => {
-            if (!ready) {
-                throw new Error('useHiveGame(): cannot mutate state before ready');
-            }
-
-            setState(prev => {
-                return hive.placeTile(prev[0], pieceType, position);
-            });
-        },
-        moveTile: (from, to) => {
-            if (!ready) {
-                throw new Error('useHiveGame(): cannot mutate state before ready');
-            }
-
-            setState(prev => {
-                return hive.moveTile(prev[0], from, to);
-            });
-        },
-        lastMoveSucceeded: state[1],
-    };
-}
 
 export default GameplayLocal;
