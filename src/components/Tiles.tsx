@@ -1,7 +1,6 @@
 import React, {RefCallback, useMemo} from 'react';
 import {ThreeEvent, useLoader} from "@react-three/fiber";
 import {CanvasTexture, Object3D, TextureLoader, Vector3} from "three";
-import {useHiveStateContext} from "./GameplayOnline";
 import {HiveColor, HivePieceType} from "../hive-game";
 import {HexGrid} from "../hex-grid";
 import {RADIUS} from "../constants";
@@ -9,9 +8,10 @@ import {RADIUS} from "../constants";
 import ObjGeometryLoader from "../obj-geometry-loader";
 // @ts-ignore
 import ImageLoader from "../image-loader";
+import {useHiveStateContext} from "./HiveStateContext";
 
 const Tiles: React.FC = () => {
-    const hiveState = useHiveStateContext();
+    const {state: hiveState} = useHiveStateContext();
     const hexGrid = new HexGrid();
     const meshes = useMemo<Object3D[]>(() => [], []);
 

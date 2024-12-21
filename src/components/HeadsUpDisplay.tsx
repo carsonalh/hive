@@ -1,28 +1,11 @@
-import React, {
-    MutableRefObject,
-    useCallback,
-    useEffect,
-    useLayoutEffect,
-    useMemo,
-    useRef,
-    useState
-} from 'react';
-import {
-    Mesh,
-    Object3D,
-    Scene,
-    Shape,
-    ShapeGeometry,
-    Vector2,
-    Vector3,
-    OrthographicCamera as ThreeOrthographicCamera, Matrix4, Matrix3, Quaternion
-} from "three";
-import {ThreeEvent, useFrame, useThree} from "@react-three/fiber";
-import {screenToNdc} from "../util";
+import React, {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
+import {Matrix3, Matrix4, Mesh, Object3D, Quaternion, Shape, ShapeGeometry, Vector3} from "three";
+import {ThreeEvent, useThree} from "@react-three/fiber";
 import {Tile} from "./Tiles";
 import {HiveColor, HivePieceType} from "../hive-game";
 import {RADIUS} from "../constants";
 import {Html, Hud, OrthographicCamera} from "@react-three/drei";
+import {useHiveStateContext} from "./HiveStateContext";
 
 const TILE_GAP_PX = 20;
 const HORIZONTAL_PADDING_PX = 30;
@@ -38,7 +21,7 @@ const NUM_TILES = 7;
 
 export interface HudProps {
     onSelectedChange?: (value: HivePieceType | null) => unknown;
-    pieceCounts: Record<HivePieceType, number>;
+    color: HiveColor;
 }
 
 const HeadsUpDisplay: React.FC<HudProps> = props => {
@@ -77,6 +60,25 @@ const HudScene: React.FC<HudProps> = props => {
 
         return new ShapeGeometry(shape);
     }, []);
+    const {state: hiveState} = useHiveStateContext();
+    const reserve = hiveState.colorToMove === HiveColor.Black
+        ? hiveState.blackReserve
+        : hiveState.whiteReserve;
+    const pieceCounts = useMemo(() => ({
+        [HivePieceType.QueenBee]: reserve.QUEEN_BEE,
+        [HivePieceType.SoldierAnt]: reserve.SOLDIER_ANT,
+        [HivePieceType.Grasshopper]: reserve.GRASSHOPPER,
+        [HivePieceType.Spider]: reserve.SPIDER,
+        [HivePieceType.Beetle]: reserve.BEETLE,
+        [HivePieceType.Ladybug]: reserve.LADYBUG,
+        [HivePieceType.Mosquito]: reserve.MOSQUITO,
+    }), [hiveState.colorToMove, hiveState.move]);
+
+    useEffect(() => {
+        setSelectedPieceType(null);
+        props.onSelectedChange && props.onSelectedChange(null);
+    }, [props.color]);
+
     const tileBackgroundMeshes = useMemo<Mesh[]>(
         () => Array.from({length: 7}, () => null!),
         []
@@ -163,7 +165,7 @@ const HudScene: React.FC<HudProps> = props => {
 
         const offset = new Vector3();
 
-        for (const [pieceType, count] of Object.entries(props.pieceCounts)) {
+        for (const [pieceType, count] of Object.entries(pieceCounts)) {
             const index = Number(pieceType)
             tileMeshes[index].visible = count > 0;
 
@@ -190,16 +192,16 @@ const HudScene: React.FC<HudProps> = props => {
 
             bubbleMeshes[index].scale.setScalar(BUBBLE_RADIUS_PX).applyMatrix3(scaleToCamera);
         }
-    }, [props.pieceCounts, size]);
+    }, [pieceCounts, size]);
 
     const bubbleElements = useMemo<HTMLDivElement[]>(() => Array.from({length: 7}, () => null!), []);
 
     const bubbleTexts = useMemo(() => Object
-            .entries(props.pieceCounts)
+            .entries(pieceCounts)
             .map(([t, c]) => [Number(t), c > 1 ? `x${c}` : ''] as const)
             .sort(([t0], [t1]) => t0 - t1)
             .map(([, c]) => c),
-        []
+        [pieceCounts]
     );
 
     const createOnPointerDown = (pieceType: HivePieceType) => (e: ThreeEvent<PointerEvent>) => {
@@ -237,43 +239,43 @@ const HudScene: React.FC<HudProps> = props => {
         <Tile
             meshRef={mesh => mesh != null && (tileMeshes[0] = mesh)}
             basic
-            color={HiveColor.Black}
+            color={props.color}
             pieceType={HivePieceType.QueenBee}
             onPointerDown={onPointerDownQueenBee}/>
         <Tile
             meshRef={mesh => mesh != null && (tileMeshes[1] = mesh)}
             basic
-            color={HiveColor.Black}
+            color={props.color}
             pieceType={HivePieceType.SoldierAnt}
             onPointerDown={onPointerDownSoldierAnt}/>
         <Tile
             meshRef={mesh => mesh != null && (tileMeshes[2] = mesh)}
             basic
-            color={HiveColor.Black}
+            color={props.color}
             pieceType={HivePieceType.Grasshopper}
             onPointerDown={onPointerDownGrasshopper}/>
         <Tile
             meshRef={mesh => mesh != null && (tileMeshes[3] = mesh)}
             basic
-            color={HiveColor.Black}
+            color={props.color}
             pieceType={HivePieceType.Spider}
             onPointerDown={onPointerDownSpider}/>
         <Tile
             meshRef={mesh => mesh != null && (tileMeshes[4] = mesh)}
             basic
-            color={HiveColor.Black}
+            color={props.color}
             pieceType={HivePieceType.Beetle}
             onPointerDown={onPointerDownBeetle}/>
         <Tile
             meshRef={mesh => mesh != null && (tileMeshes[5] = mesh)}
             basic
-            color={HiveColor.Black}
+            color={props.color}
             pieceType={HivePieceType.Ladybug}
             onPointerDown={onPointerDownLadybug}/>
         <Tile
             meshRef={mesh => mesh != null && (tileMeshes[6] = mesh)}
             basic
-            color={HiveColor.Black}
+            color={props.color}
             pieceType={HivePieceType.Mosquito}
             onPointerDown={onPointerDownMosquito}/>
 
