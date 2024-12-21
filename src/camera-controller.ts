@@ -70,6 +70,7 @@ class CameraController {
     }
 
     public update(deltaTimeMs: number, state: MouseState): void {
+        deltaTimeMs = Math.min(deltaTimeMs, 1 / 30);
         this.ground.lerp(this.midpoint, deltaTimeMs * CAMERA_LERP);
         const GOAL_LATITUDE = Math.PI / 2 - EPSILON;
         const GOAL_LONGITUDE = 0;
