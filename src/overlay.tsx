@@ -10,7 +10,6 @@ import {createRoot} from "react-dom/client";
 import {BrowserRouter, Link, Outlet, Route, Routes, useNavigate} from "react-router";
 import {getStore, setLocalScene, setOnlineScene} from "./store";
 import OnlineScene from "./online-scene";
-import {LEFT_BUTTON} from "./constants";
 
 export function renderOverlay() {
     createRoot(document.getElementById('react-overlay')!).render(<HiveOverlay/>);
@@ -39,12 +38,8 @@ function HomePage() {
             <div className="background-hexagon"></div>
         </h1>
         <div className="hex-button-container">
-            <Link to='online'>
-                <button>Play Online</button>
-            </Link>
-            <Link to='local'>
-                <button>Local PvP</button>
-            </Link>
+            <Link to='online'>Play Online</Link>
+            <Link to='local'>Local PvP</Link>
         </div>
     </div>;
 }
@@ -81,12 +76,8 @@ function OnlineSceneLoader() {
 function OnlineMaster() {
     return <div className="online-overlay-container">
         <div className="hex-button-container hosted-game-container">
-            <Link to='create'>
-                <button>Create PvP</button>
-            </Link>
-            <Link to='join'>
-                <button>Join PvP</button>
-            </Link>
+            <Link to='create'>Create PvP</Link>
+            <Link to='join'>Join PvP</Link>
         </div>
     </div>;
 }
@@ -124,9 +115,7 @@ function OnlineCreate() {
                         <div>{gameId}</div>
                     </>
             }
-            <Link to='..'>
-                <button className="hex-button">Back</button>
-            </Link>
+            <Link to='..' className='hex-button'>Back</Link>
         </main>
     </div>;
 }
@@ -160,12 +149,8 @@ function OnlineJoin() {
         <main className="join">
             <input type="text" placeholder="Code" value={joinId} onChange={inputChangeHandler}/>
             <div className="hex-button-container">
-                <button onPointerDown={(e) => e.button === LEFT_BUTTON && setAttemptedJoin(true)}>
-                    Join
-                </button>
-                <Link to='..'>
-                    <button>Back</button>
-                </Link>
+                <Link to='.' onClick={() => setAttemptedJoin(true)}>Join</Link>
+                <Link to='..'>Back</Link>
             </div>
         </main>
     </div>;

@@ -39,7 +39,7 @@
             margin-top: 80px;
         }
 
-        .hex-button-container > button,
+        .hex-button-container > a,
         .hex-button {
             box-sizing: border-box;
             --height: 60px;
@@ -65,7 +65,7 @@
             );
         }
 
-        .hex-button-container > button:hover,
+        .hex-button-container > a:hover,
         .hex-button:hover {
             background-color: #202020;
         }
@@ -115,7 +115,6 @@
         .navigation-overlay .hex-button-container {
             left: 50vw;
             transform: translate(-50%, 0);
-
         }
 
         .hex-button-container {
@@ -126,19 +125,26 @@
             top: 55vh;
         }
 
-        .hex-button-container > button {
+        .hex-button-container > a {
             --hexagon-gap: 6px;
             --x-axis-offset: calc(var(--hexagon-inset) - var(--hexagon-gap) * sqrt(3) / 2);
             margin-bottom: var(--hexagon-gap);
             width: 50%;
         }
 
-        .hex-button-container button:nth-of-type(odd) {
+        .hex-button-container a:nth-of-type(odd) {
             transform: translate(calc(var(--x-axis-offset) / 2), 0);
         }
 
-        .hex-button-container button:nth-of-type(even) {
+        .hex-button-container a:nth-of-type(even) {
             transform: translate(calc(-1 * var(--x-axis-offset) / 2), calc(50% + var(--hexagon-gap) / 2));
+        }
+
+        .hex-button-container > a,
+        .hex-button {
+            text-decoration: none;
+            text-align: center;
+            line-height: var(--height);
         }
 
         .hud-move-indicator {
@@ -172,7 +178,6 @@
             width: 100vw;
             height: 100vh;
             background-color: var(--background);
-            z-index: 1;
         }
 
         .online-overlay-container .hex-button-container {
@@ -193,7 +198,7 @@
             text-align: center;
         }
 
-        .online-overlay-container main.create button {
+        .online-overlay-container main.create a {
             margin-top: 20px;
         }
 
@@ -237,6 +242,11 @@
             right: auto;
             bottom: auto;
             margin: 45px auto;
+        }
+
+        .navigation-overlay,
+        .online-overlay-container {
+            z-index: 10;
         }
     </style>
 </head>
