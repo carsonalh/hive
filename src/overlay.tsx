@@ -31,7 +31,7 @@ function HiveOverlay() {
                     <Route index element={<OnlineMaster/>}/>
                     <Route path='create' element={<OnlineCreate/>}/>
                     <Route path='join' element={<OnlineJoin/>}/>
-                    <Route path='play' element={null}/>
+                    <Route path='play' element={<OnlinePlay/>}/>
                 </Route>
             </Routes>
         </BrowserRouter>
@@ -152,5 +152,34 @@ function OnlineJoin() {
                 <Link to='..'>Back</Link>
             </div>
         </main>
+    </div>;
+}
+
+function OnlinePlay() {
+    const client = useOnlineClient();
+    const navigate = useNavigate();
+    const [showSplash, setShowSplash] = useState(true);
+
+    useEffect(() => {
+        console.log(`client.hasActiveGame(): ${client.hasActiveGame()}`);
+
+        if (!client.hasActiveGame()) {
+            navigate('..');
+        } else {
+            setShowSplash(false);
+        }
+    }, []);
+
+    return showSplash ? <SplashScreen /> : null;
+}
+
+function SplashScreen() {
+    return <div className="navigation-overlay">
+        <h1>
+            HiveGame.io
+            <div className="background-hexagon"></div>
+            <div className="background-hexagon"></div>
+            <div className="background-hexagon"></div>
+        </h1>
     </div>;
 }

@@ -178,6 +178,10 @@ export default class OnlineClient {
         return color;
     }
 
+    hasActiveGame(): boolean {
+        return this.session?.game != null;
+    }
+
     private onMessage(message: string) {
         if (this.session == null || this.session.game == null) {
             throw new Error('invalid state, cannot receive a message while no session/game is open');
