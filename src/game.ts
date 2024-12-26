@@ -9,18 +9,21 @@ import {
     Vector3
 } from "three";
 import MoveManager, {LocalMoveManager} from "./move-manager";
-import System from "./system";
-import RenderSystem from "./render-system";
+import System from "./systems/system";
+import RenderSystem from "./systems/render-system";
 import {EntityRegistry} from "./entity-registry";
-import MeshComponent from "./mesh-component";
-import LightComponent from "./light-component";
-import TilePlacementSystem from "./tile-placement-system";
-import CameraControllerSystem from "./camera-controller-system";
-import Object3DComponent from "./object3d-component";
-import HiveGameComponent from "./hive-game-component";
+import MeshComponent from "./components/mesh-component";
+import LightComponent from "./components/light-component";
+import Object3DComponent from "./components/object3d-component";
+import HiveGameComponent from "./components/hive-game-component";
+import HudComponent from "./components/hud-component";
+import TileMovementSystem from "./systems/tile-movement-system";
+import CameraControllerSystem from "./systems/camera-controller-system";
+import HudSystem from "./systems/hud-system";
 import {HiveGame} from "./hive-game";
-import HudSystem from "./hud-system";
-import HudComponent from "./hud-component";
+import TileLayoutComponent from "./components/tile-layout-component";
+import TileMovementComponent from "./components/tile-movement-component";
+import TileLayoutSystem from "./systems/tile-layout-system";
 
 export default class Game {
     private readonly systems: System[];
@@ -53,10 +56,13 @@ export default class Game {
         this.registry.addEntity([new Object3DComponent(new AxesHelper())]);
         this.registry.addEntity([new HiveGameComponent(new HiveGame())]);
         this.registry.addEntity([new HudComponent()]);
+        this.registry.addEntity([new TileLayoutComponent()]);
+        this.registry.addEntity([new TileMovementComponent()]);
 
         this.systems = [
             new CameraControllerSystem(this.registry),
-            new TilePlacementSystem(this.registry),
+            new TileMovementSystem(this.registry),
+            new TileLayoutSystem(this.registry),
         ];
 
         // intentionally last in the array of systems so update happens before render

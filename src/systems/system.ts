@@ -1,4 +1,4 @@
-import {EntityRegistry} from "./entity-registry";
+import {EntityRegistry} from "../entity-registry";
 
 export default abstract class System {
     constructor(protected registry: EntityRegistry) {}

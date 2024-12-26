@@ -1,4 +1,4 @@
-import Component from "./component";
+import Component from "./components/component";
 import {ConstructorOf} from "./util";
 
 export class Entity {

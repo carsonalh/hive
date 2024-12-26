@@ -1,13 +1,13 @@
 import System from "./system";
-import HiveGameComponent from "./hive-game-component";
-import {HiveColor, HivePieceType} from "./hive-game";
-import HudComponent from "./hud-component";
+import HiveGameComponent from "../components/hive-game-component";
+import HudComponent from "../components/hud-component";
+import {HiveColor, HivePieceType} from "../hive-game";
 import {Matrix4, Raycaster, Vector2, Vector3, WebGLRenderer} from "three";
 import {RendererComponent} from "./render-system";
-import {rotateAboutVector, screenToNdc} from "./util";
+import {rotateAboutVector, screenToNdc} from "../util";
 
 const NUM_TILES = 7;
-const TILE_GAP_PX = 15;
+const TILE_GAP_PX = 8;
 const HORIZONTAL_PADDING_PX = 20;
 const MOVE_INDICATOR_PADDING_TOP_PX = 30;
 const MARKER_WIDTH_PX = 4;

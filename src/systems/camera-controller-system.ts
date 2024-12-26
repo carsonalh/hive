@@ -1,8 +1,10 @@
 import System from "./system";
 import {PerspectiveCamera, Vector3} from "three";
-import CameraComponent from "./camera-component";
-import {EntityRegistry} from "./entity-registry";
-import {Entity} from "./entity";
+import CameraComponent from "../components/camera-component";
+import MeshComponent from "../components/mesh-component";
+import TileComponent from "../components/tile-component";
+import {EntityRegistry} from "../entity-registry";
+import {Entity} from "../entity";
 import {
     CAMERA_ANGLE_LERP,
     CAMERA_LERP,
@@ -10,11 +12,9 @@ import {
     CAMERA_POSITION_MIN,
     EPSILON,
     SCROLL_FACTOR
-} from "./constants";
-import MouseStateTracker from "./mouse-state";
-import {rotateAboutVector} from "./util";
-import MeshComponent from "./mesh-component";
-import TileComponent from "./tile-component";
+} from "../constants";
+import MouseStateTracker from "../mouse-state";
+import {rotateAboutVector} from "../util";
 
 export default class CameraControllerSystem extends System {
     private camera = new PerspectiveCamera();

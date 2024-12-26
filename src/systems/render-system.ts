@@ -1,9 +1,9 @@
 import System from "./system";
 import {Color, PCFSoftShadowMap, Scene, WebGLRenderer} from "three";
-import {EntityRegistry} from "./entity-registry";
-import CameraComponent from "./camera-component";
-import Object3DComponent from "./object3d-component";
-import Component from "./component";
+import {EntityRegistry} from "../entity-registry";
+import CameraComponent from "../components/camera-component";
+import Object3DComponent from "../components/object3d-component";
+import Component from "../components/component";
 
 export class RendererComponent extends Component {
     constructor(public renderer: WebGLRenderer) {

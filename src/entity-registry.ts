@@ -1,4 +1,4 @@
-import Component from "./component";
+import Component from "./components/component";
 import {Entity} from "./entity";
 import {ConstructorOf} from "./util";
 
@@ -41,6 +41,21 @@ export class EntityRegistry {
             }
         }
         return components;
+    }
+
+    getSingletonComponent<T extends Component>(component: ConstructorOf<T>): T {
+        const components: T[] = [];
+        for (const e of this.entities) {
+            if (e.hasComponent(component)) {
+                components.push(e.getComponent(component));
+            }
+        }
+
+        if (components.length !== 1) {
+            throw new Error(`could not get singleton component (found ${components.length})`);
+        }
+
+        return components[0];
     }
 }
 

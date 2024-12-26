@@ -23,8 +23,8 @@ import {
     WHITE_QUEEN_BEE,
     WHITE_SOLDIER_ANT,
     WHITE_SPIDER
-} from "./tiles";
-import {HivePieceType} from "./hive-game";
+} from "../tiles";
+import {HivePieceType} from "../hive-game";
 
 export default class HudComponent extends Component {
     selectedPieceType: HivePieceType | null = null;

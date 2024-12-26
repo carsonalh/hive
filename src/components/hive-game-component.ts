@@ -1,5 +1,5 @@
 import Component from "./component";
-import {HiveColor, HiveGame} from "./hive-game";
+import {HiveColor, HiveGame} from "../hive-game";
 
 export default class HiveGameComponent extends Component {
     playerColor = HiveColor.Black
