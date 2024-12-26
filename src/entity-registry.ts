@@ -1,0 +1,46 @@
+import Component from "./component";
+import {Entity} from "./entity";
+import {ConstructorOf} from "./util";
+
+export class EntityRegistry {
+    private readonly entities: Entity[] = [];
+
+    constructor() {
+    }
+
+    addEntity(components: Component[]): Entity {
+        const entity = new Entity(...components)
+        this.entities.push(entity);
+        return entity;
+    }
+
+    getEntitiesWithComponents(...components: ConstructorOf<Component>[]): Entity[] {
+        const entities: Entity[] = [];
+
+        for (const e of this.entities) {
+            let hasAllComponents = true;
+            for (const c of components) {
+                if (!e.hasComponent(c)) {
+                    hasAllComponents = false;
+                    break;
+                }
+            }
+            if (hasAllComponents) {
+                entities.push(e);
+            }
+        }
+
+        return entities;
+    }
+
+    getComponents<T extends Component>(component: ConstructorOf<T>): T[] {
+        const components: T[] = [];
+        for (const e of this.entities) {
+            if (e.hasComponent(component)) {
+                components.push(e.getComponent(component));
+            }
+        }
+        return components;
+    }
+}
+

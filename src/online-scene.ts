@@ -92,12 +92,12 @@ export default class OnlineScene implements GameplayScene {
 
                 if (this.hud.selectedPieceType != null) {
                     if (isOurTurn && this.hiveScene.placePiece(this.hud.selectedPieceType, hit)) {
-                        this._client.placePiece(this.hud.selectedPieceType, hit);
+                        this._client.placeTile(this.hud.selectedPieceType, hit);
                         this.updateHud();
                     }
                 } else if (this.hiveScene.selected != null) {
                     if (isOurTurn && this.hiveScene.movePiece(this.hiveScene.selected, hit)) {
-                        this._client.movePiece(this.hiveScene.selected, hit);
+                        this._client.moveTile(this.hiveScene.selected, hit);
                     }
                 } else {
                     this.hiveScene.select(hit);

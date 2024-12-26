@@ -127,7 +127,7 @@ export default class OnlineClient {
         });
     }
 
-    public placePiece(pieceType: HivePieceType, position: HexVector) {
+    public placeTile(pieceType: HivePieceType, position: HexVector) {
         const pieceTypeMap = HiveGame.internalPieceTypeMap();
 
         const game = this.session?.game;
@@ -147,7 +147,7 @@ export default class OnlineClient {
         }))
     }
 
-    public movePiece(from: HexVector, to: HexVector) {
+    public moveTile(from: HexVector, to: HexVector) {
         const game = this.session?.game;
         if (game == null) {
             throw new Error('cannot place a piece when no current game is active');
@@ -167,6 +167,15 @@ export default class OnlineClient {
 
     public close(): void {
         this.session?.game?.socket.close();
+    }
+
+    color(): HiveColor {
+        let color: HiveColor | undefined
+        if ((color = this.session?.game?.color) == null) {
+            throw new Error('cannot access color while there is no active game');
+        }
+
+        return color;
     }
 
     private onMessage(message: string) {

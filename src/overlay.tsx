@@ -8,26 +8,35 @@ import React, {
 } from 'react';
 import {createRoot} from "react-dom/client";
 import {BrowserRouter, Link, Outlet, Route, Routes, useNavigate} from "react-router";
-import {getStore, setLocalScene, setOnlineScene} from "./store";
-import OnlineScene from "./online-scene";
+import Game from "./game";
+import {getGame} from "./game-store";
+import {LocalMoveManager, OnlineMoveManager} from "./move-manager";
+import OnlineClient from "./online-client";
 
 export function renderOverlay() {
     createRoot(document.getElementById('react-overlay')!).render(<HiveOverlay/>);
 }
 
+const GameContext = createContext<Game>(null!);
+const useGame = () => useContext(GameContext);
+
 function HiveOverlay() {
-    return <BrowserRouter>
-        <Routes>
-            <Route index element={<HomePage/>}/>
-            <Route path='local' element={<LocalSceneLoader/>}/>
-            <Route path='online' element={<OnlineSceneLoader/>}>
-                <Route index element={<OnlineMaster/>}/>
-                <Route path='create' element={<OnlineCreate/>}/>
-                <Route path='join' element={<OnlineJoin/>}/>
-                <Route path='play' element={null}/>
-            </Route>
-        </Routes>
-    </BrowserRouter>;
+    const [game] = useState(() => getGame());
+
+    return <GameContext.Provider value={game}>
+        <BrowserRouter>
+            <Routes>
+                <Route index element={<HomePage/>}/>
+                <Route path='local' element={<LocalSceneLoader/>}/>
+                <Route path='online' element={<OnlineSceneLoader/>}>
+                    <Route index element={<OnlineMaster/>}/>
+                    <Route path='create' element={<OnlineCreate/>}/>
+                    <Route path='join' element={<OnlineJoin/>}/>
+                    <Route path='play' element={null}/>
+                </Route>
+            </Routes>
+        </BrowserRouter>
+    </GameContext.Provider>;
 }
 
 function HomePage() {
@@ -45,32 +54,28 @@ function HomePage() {
 }
 
 function LocalSceneLoader() {
+    const game = useGame();
+
     useEffect(() => {
-        void setLocalScene();
+        game.setMoveManager(new LocalMoveManager());
     }, []);
 
     return <Outlet/>;
 }
 
-const OnlineSceneLoadedContext = createContext({
-    loaded: false, setLoaded: (_: boolean) => {
-    }
-});
-const useOnlineSceneLoaded = () => {
-    const {loaded} = useContext(OnlineSceneLoadedContext);
-    return loaded;
-};
+const OnlineClientContext = createContext<OnlineClient>(null!);
+const useOnlineClient = () => useContext(OnlineClientContext);
 
 function OnlineSceneLoader() {
-    const [loaded, setLoaded] = useState(false);
+    const [client] = useState(() => new OnlineClient());
 
     useEffect(() => {
-        setOnlineScene().then(() => setLoaded(true));
+        void client.join();
     }, []);
 
-    return <OnlineSceneLoadedContext.Provider value={{loaded, setLoaded}}>
+    return <OnlineClientContext.Provider value={client}>
         <Outlet/>
-    </OnlineSceneLoadedContext.Provider>;
+    </OnlineClientContext.Provider>;
 }
 
 function OnlineMaster() {
@@ -83,27 +88,25 @@ function OnlineMaster() {
 }
 
 function OnlineCreate() {
-    const sceneLoaded = useOnlineSceneLoaded();
     const [gameId, setGameId] = useState<string | null>(null);
     const navigate = useNavigate();
+    const client = useOnlineClient();
 
     useEffect(() => {
-        if (!sceneLoaded) return;
+        let shouldNavigate = true;
 
-        const {scene} = getStore();
-        if (!(scene instanceof OnlineScene)) {
-            throw new Error('OnlineScene loaded but scene is not OnlineScene');
-        }
-
-        scene.client.addConnectHandler(() => {
-            navigate('../play');
+        client.createPvpGame().then(id => setGameId(id));
+        client.addConnectHandler(() => {
+            if (shouldNavigate) {
+                getGame().setMoveManager(new OnlineMoveManager(client));
+                navigate('../play');
+            }
         });
 
-        (async () => {
-            const id = await scene.client.createPvpGame();
-            setGameId(id);
-        })();
-    }, [sceneLoaded]);
+        return () => {
+            shouldNavigate = false;
+        };
+    }, []);
 
     return <div className="online-overlay-container">
         <main className="create">
@@ -122,28 +125,25 @@ function OnlineCreate() {
 
 function OnlineJoin() {
     const [joinId, setJoinId] = useState('');
-    const sceneLoaded = useOnlineSceneLoaded();
     const [attemptedJoin, setAttemptedJoin] = useState(false);
     const navigate = useNavigate();
+    const client = useOnlineClient();
 
     const inputChangeHandler = useCallback((e: ChangeEvent<HTMLInputElement>) => {
         setJoinId(e.target.value.toUpperCase());
     }, []);
 
     useEffect(() => {
-        if (!attemptedJoin || !sceneLoaded) return;
+        if (!attemptedJoin) return;
 
-        const {scene} = getStore();
-        if (!(scene instanceof OnlineScene)) {
-            throw new Error('scene should have loaded into an OnlineScene');
-        }
-
-        scene.client.addConnectHandler(() => {
-            navigate("../play");
+        client.joinPvpGame(joinId);
+        client.addConnectHandler(() => {
+            getGame().setMoveManager(new OnlineMoveManager(client));
+            navigate('../play');
         });
 
-        scene.client.joinPvpGame(joinId);
-    }, [attemptedJoin, sceneLoaded]);
+        setAttemptedJoin(false);
+    }, [attemptedJoin]);
 
     return <div className="online-overlay-container">
         <main className="join">
