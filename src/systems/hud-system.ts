@@ -169,9 +169,9 @@ export default class HudSystem extends System {
             blackMosquito,
         ];
 
-        const {playerColor} = this.registry
-            .getEntitiesWithComponents(HiveGameComponent)[0]
-            .getComponent(HiveGameComponent);
+        const {game} = this.registry.getSingletonComponent(HiveGameComponent);
+        const mode = this.registry.getSingletonComponent(PlayModeComponent);
+        const playerColor = mode.playMode() === PlayMode.Local ? game.colorToMove() : mode.client().color();
 
         const userSelection = this.registry.getSingletonComponent(UserSelectionComponent);
 
@@ -179,15 +179,18 @@ export default class HudSystem extends System {
         const meshes = playerColor === HiveColor.Black ? blackMeshes : whiteMeshes;
         for (let i = 0; i < meshes.length; i++) {
             if (this.raycaster.intersectObject(meshes[i]).length > 0) {
-                userSelection.pieceType = [
-                    HivePieceType.QueenBee,
-                    HivePieceType.SoldierAnt,
-                    HivePieceType.Spider,
-                    HivePieceType.Grasshopper,
-                    HivePieceType.Beetle,
-                    HivePieceType.Ladybug,
-                    HivePieceType.Mosquito
-                ][i] ?? null;
+                if (mode.playMode() !== PlayMode.Online || playerColor === game.colorToMove()) {
+                    userSelection.pieceType = [
+                        HivePieceType.QueenBee,
+                        HivePieceType.SoldierAnt,
+                        HivePieceType.Spider,
+                        HivePieceType.Grasshopper,
+                        HivePieceType.Beetle,
+                        HivePieceType.Ladybug,
+                        HivePieceType.Mosquito
+                    ][i] ?? null;
+                }
+
                 return true;
             }
         }

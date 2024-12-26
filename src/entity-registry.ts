@@ -14,6 +14,17 @@ export class EntityRegistry {
         return entity;
     }
 
+    removeEntity(...entities: Entity[]) {
+        for (const e of entities) {
+            const i = this.entities.indexOf(e);
+            if (i < 0) {
+                throw new Error('cannot remove entity which is not registered');
+            }
+
+            this.entities.splice(i, 1);
+        }
+    }
+
     getEntitiesWithComponents(...components: ConstructorOf<Component>[]): Entity[] {
         const entities: Entity[] = [];
 

@@ -12,7 +12,7 @@ import UserSelectionComponent from "../components/user-selection-component";
 import PlayModeComponent, {PlayMode} from "../components/play-mode-component";
 import {Move} from "../online-client";
 import {HexVector} from "../hex-grid";
-import {HivePieceType} from "../hive-game";
+import {HiveGame, HivePieceType} from "../hive-game";
 
 /**
  * Responsible for making moves in the game.
@@ -21,22 +21,19 @@ export default class TileMovementSystem extends System {
     private raycaster = new Raycaster();
     private previousPlayMode = PlayMode.Local;
 
-    onCreate() {
-        const mode = this.registry.getSingletonComponent(PlayModeComponent);
-
-        if (mode.playMode() === PlayMode.Online) {
-            mode.client().addReceiveMoveHandler(this.onReceiveMove.bind(this));
-        }
-    }
-
     onUpdate() {
         const mode = this.registry.getSingletonComponent(PlayModeComponent);
 
         const currentMode = mode.playMode()
 
-        if (this.previousPlayMode !== currentMode && currentMode === PlayMode.Online) {
-            console.log('registering receive move');
-            mode.client().addReceiveMoveHandler(this.onReceiveMove.bind(this));
+        if (this.previousPlayMode !== currentMode) {
+            if (currentMode === PlayMode.Online) {
+                mode.client().addReceiveMoveHandler(this.onReceiveMove.bind(this));
+            } else {
+                const gameComponent = this.registry.getSingletonComponent(HiveGameComponent);
+                gameComponent.game = new HiveGame();
+                this.registry.removeEntity(...this.registry.getEntitiesWithComponents(TileComponent));
+            }
         }
 
         this.previousPlayMode = currentMode;
@@ -53,6 +50,7 @@ export default class TileMovementSystem extends System {
                     throw new Error('id cannot be null');
                 }
 
+                // TODO create a mesh bank system
                 (async () => {
                     const mesh = await createTile(opponentColor, move.pieceType);
                     this.registry.addEntity([new MeshComponent(mesh), new TileComponent(id)]);
@@ -68,24 +66,22 @@ export default class TileMovementSystem extends System {
             return false;
         }
 
+        const hiveGameComponent = this.registry.getSingletonComponent(HiveGameComponent);
+        const {game} = hiveGameComponent;
+        const mode = this.registry.getSingletonComponent(PlayModeComponent);
+        if (mode.playMode() === PlayMode.Online && game.colorToMove() !== mode.client().color()) {
+            return true;
+        }
+
         const ndc = new Vector2();
         screenToNdc(new Vector2(e.clientX, e.clientY), ndc);
         const {camera} = this.registry.getSingletonComponent(CameraComponent);
         this.raycaster.setFromCamera(ndc, camera);
 
-        const hiveGameComponent = this.registry.getSingletonComponent(HiveGameComponent);
         const userSelection = this.registry.getSingletonComponent(UserSelectionComponent);
-        const {game} = hiveGameComponent;
-
-        const mode = this.registry.getSingletonComponent(PlayModeComponent);
-
-        if (mode.playMode() === PlayMode.Online && game.colorToMove() !== mode.client().color()) {
-            return true;
-        }
-
         const tiles = this.registry.getEntitiesWithComponents(TileComponent);
-        const meshes = tiles.map(t => t.getComponent(MeshComponent).mesh);
-        const tileIntersections = this.raycaster.intersectObjects(meshes)
+        const tileMeshes = tiles.map(t => t.getComponent(MeshComponent).mesh);
+        const tileIntersections = this.raycaster.intersectObjects(tileMeshes)
 
         const backgroundPlane = this.registry
             .getComponents(MeshComponent)
@@ -97,7 +93,7 @@ export default class TileMovementSystem extends System {
         const hitBackground = backgroundIntersections.length > 0;
 
         if (hitTile) {
-            const hitTileComponent = tiles[meshes.indexOf(tileIntersections[0].object as Mesh)]
+            const hitTileComponent = tiles[tileMeshes.indexOf(tileIntersections[0].object as Mesh)]
                 .getComponent(TileComponent);
             const tile = game.tiles()[hitTileComponent.id];
 
