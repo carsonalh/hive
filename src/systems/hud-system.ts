@@ -5,6 +5,7 @@ import {HiveColor, HivePieceType} from "../hive-game";
 import {Matrix4, Raycaster, Vector2, Vector3, WebGLRenderer} from "three";
 import {RendererComponent} from "./render-system";
 import {rotateAboutVector, screenToNdc} from "../util";
+import UserSelectionComponent from "../components/user-selection-component";
 
 const NUM_TILES = 7;
 const TILE_GAP_PX = 8;
@@ -171,11 +172,13 @@ export default class HudSystem extends System {
             .getEntitiesWithComponents(HiveGameComponent)[0]
             .getComponent(HiveGameComponent);
 
+        const userSelection = this.registry.getSingletonComponent(UserSelectionComponent);
+
         this.raycaster.setFromCamera(ndc, camera);
         const meshes = playerColor === HiveColor.Black ? blackMeshes : whiteMeshes;
         for (let i = 0; i < meshes.length; i++) {
             if (this.raycaster.intersectObject(meshes[i]).length > 0) {
-                hudComponent.selectedPieceType = [
+                userSelection.pieceType = [
                     HivePieceType.QueenBee,
                     HivePieceType.SoldierAnt,
                     HivePieceType.Spider,
@@ -189,7 +192,7 @@ export default class HudSystem extends System {
         }
 
         if (this.raycaster.intersectObject(backgroundPlane).length > 0) {
-            hudComponent.selectedPieceType = null;
+            userSelection.pieceType = null;
             return true;
         }
 
@@ -228,7 +231,6 @@ export default class HudSystem extends System {
         const {
             moveIndicator,
             marker,
-            selectedPieceType,
             bubbleElements,
             bubbleMeshes,
             whiteQueenBee,
@@ -327,13 +329,15 @@ export default class HudSystem extends System {
         moveIndicator.style.left = `${2 * HORIZONTAL_PADDING_PX + tileOuterDiameterPx}px`
         moveIndicator.style.top = `${MOVE_INDICATOR_PADDING_TOP_PX}px`
 
-        // Place marker
-        marker.visible = selectedPieceType != null;
+        const userSelection = this.registry.getSingletonComponent(UserSelectionComponent);
 
-        if (selectedPieceType != null) {
+        // Place marker
+        marker.visible = userSelection.pieceType != null;
+
+        if (userSelection.pieceType != null) {
             marker.position.set(
                 HORIZONTAL_PADDING_PX + tileOuterDiameterPx / 2,
-                TILE_GAP_PX + tileInnerDiameterPx / 2 + (selectedPieceType as number) * (TILE_GAP_PX + tileInnerDiameterPx),
+                TILE_GAP_PX + tileInnerDiameterPx / 2 + (userSelection.pieceType as number) * (TILE_GAP_PX + tileInnerDiameterPx),
                 0
             );
             marker.position.applyMatrix4(this.positionPxToCamera);

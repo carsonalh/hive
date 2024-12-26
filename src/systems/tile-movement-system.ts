@@ -4,12 +4,12 @@ import MeshComponent from "../components/mesh-component";
 import TileComponent from "../components/tile-component";
 import {LEFT_BUTTON} from "../constants";
 import HudComponent from "../components/hud-component";
-import TileMovementComponent from "../components/tile-movement-component";
 import HiveGameComponent from "../components/hive-game-component";
 import CameraComponent from "../components/camera-component";
 import {screenToNdc} from "../util";
 import TileLayoutComponent from "../components/tile-layout-component";
 import {createTile} from "../tiles";
+import UserSelectionComponent from "../components/user-selection-component";
 
 /**
  * Responsible for making moves in the game.
@@ -27,9 +27,8 @@ export default class TileMovementSystem extends System {
         const {camera} = this.registry.getSingletonComponent(CameraComponent);
         this.raycaster.setFromCamera(ndc, camera);
 
-        const tilePlacementComponent = this.registry.getSingletonComponent(TileMovementComponent);
-        const hudComponent = this.registry.getSingletonComponent(HudComponent);
         const hiveGameComponent = this.registry.getSingletonComponent(HiveGameComponent);
+        const userSelection = this.registry.getSingletonComponent(UserSelectionComponent);
         const {game} = hiveGameComponent;
 
         const tiles = this.registry.getEntitiesWithComponents(TileComponent);
@@ -49,13 +48,13 @@ export default class TileMovementSystem extends System {
 
             const tile = game.tiles()[tileComponent.id];
 
-            if (tilePlacementComponent.selectedTile != null) {
-                if (game.moveTile(tilePlacementComponent.selectedTile, tile.position)) {
-                    tile.position = tilePlacementComponent.selectedTile;
+            if (userSelection.position != null) {
+                if (game.moveTile(userSelection.position, tile.position)) {
+                    tile.position = userSelection.position;
                     hiveGameComponent.playerColor = game.colorToMove();
                 }
             } else {
-                tilePlacementComponent.selectedTile = tile.position;
+                userSelection.position = tile.position;
             }
 
             return true;
@@ -65,27 +64,25 @@ export default class TileMovementSystem extends System {
             const {hexGrid} = this.registry.getSingletonComponent(TileLayoutComponent);
             const hex = hexGrid.euclideanToHex(hit);
 
-            if (hudComponent.selectedPieceType != null) {
-                const {selectedPieceType} = hudComponent;
+            if (userSelection.pieceType != null) {
+                const { pieceType} = userSelection;
                 const colorToMove = game.colorToMove();
-                if (game.placeTile(hudComponent.selectedPieceType, hex)) {
+                if (game.placeTile(pieceType, hex)) {
                     const id = game.idOfLastPlaced();
                     if (id == null) {
                         throw new Error('id cannot be null');
                     }
 
                     (async () => {
-                        const mesh = await createTile(colorToMove, selectedPieceType);
-                        hudComponent.selectedPieceType = null;
-                        tilePlacementComponent.selectedTile = null;
+                        const mesh = await createTile(colorToMove, pieceType);
+                        userSelection.pieceType = null;
                         hiveGameComponent.playerColor = game.colorToMove();
                         this.registry.addEntity([new MeshComponent(mesh), new TileComponent(id)]);
                     })();
                 }
-            } else if (tilePlacementComponent.selectedTile != null) {
-                if (game.moveTile(tilePlacementComponent.selectedTile, hex)) {
-                    hudComponent.selectedPieceType = null;
-                    tilePlacementComponent.selectedTile = null;
+            } else if (userSelection.position != null) {
+                if (game.moveTile(userSelection.position, hex)) {
+                    userSelection.position = null;
                     hiveGameComponent.playerColor = game.colorToMove();
                 }
             }

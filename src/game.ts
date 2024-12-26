@@ -22,8 +22,8 @@ import CameraControllerSystem from "./systems/camera-controller-system";
 import HudSystem from "./systems/hud-system";
 import {HiveGame} from "./hive-game";
 import TileLayoutComponent from "./components/tile-layout-component";
-import TileMovementComponent from "./components/tile-movement-component";
 import TileLayoutSystem from "./systems/tile-layout-system";
+import UserSelectionComponent from "./components/user-selection-component";
 
 export default class Game {
     private readonly systems: System[];
@@ -57,7 +57,7 @@ export default class Game {
         this.registry.addEntity([new HiveGameComponent(new HiveGame())]);
         this.registry.addEntity([new HudComponent()]);
         this.registry.addEntity([new TileLayoutComponent()]);
-        this.registry.addEntity([new TileMovementComponent()]);
+        this.registry.addEntity([new UserSelectionComponent()]);
 
         this.systems = [
             new CameraControllerSystem(this.registry),

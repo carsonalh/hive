@@ -15,7 +15,8 @@ import {
     BLACK_MOSQUITO,
     BLACK_QUEEN_BEE,
     BLACK_SOLDIER_ANT,
-    BLACK_SPIDER, HEXAGON_SHAPE,
+    BLACK_SPIDER,
+    HEXAGON_SHAPE,
     WHITE_BEETLE,
     WHITE_GRASSHOPPER,
     WHITE_LADYBUG,
@@ -24,10 +25,8 @@ import {
     WHITE_SOLDIER_ANT,
     WHITE_SPIDER
 } from "../tiles";
-import {HivePieceType} from "../hive-game";
 
 export default class HudComponent extends Component {
-    selectedPieceType: HivePieceType | null = null;
     scene = new Scene();
     camera = new OrthographicCamera(-1, 1, window.innerHeight / window.innerWidth, -window.innerHeight / window.innerWidth);
     backgroundPlane = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({
