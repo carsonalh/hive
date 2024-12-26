@@ -10,7 +10,6 @@ import {createRoot} from "react-dom/client";
 import {BrowserRouter, Link, Outlet, Route, Routes, useNavigate} from "react-router";
 import Game from "./game";
 import {getGame} from "./game-store";
-import {LocalMoveManager, OnlineMoveManager} from "./move-manager";
 import OnlineClient from "./online-client";
 
 export function renderOverlay() {
@@ -57,7 +56,7 @@ function LocalSceneLoader() {
     const game = useGame();
 
     useEffect(() => {
-        game.setMoveManager(new LocalMoveManager());
+        game.setClient();
     }, []);
 
     return <Outlet/>;
@@ -98,7 +97,7 @@ function OnlineCreate() {
         client.createPvpGame().then(id => setGameId(id));
         client.addConnectHandler(() => {
             if (shouldNavigate) {
-                getGame().setMoveManager(new OnlineMoveManager(client));
+                getGame().setClient(client);
                 navigate('../play');
             }
         });
@@ -138,7 +137,7 @@ function OnlineJoin() {
 
         client.joinPvpGame(joinId);
         client.addConnectHandler(() => {
-            getGame().setMoveManager(new OnlineMoveManager(client));
+            getGame().setClient(client);
             navigate('../play');
         });
 

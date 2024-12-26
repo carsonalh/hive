@@ -6,6 +6,7 @@ import {Matrix4, Raycaster, Vector2, Vector3, WebGLRenderer} from "three";
 import {RendererComponent} from "./render-system";
 import {rotateAboutVector, screenToNdc} from "../util";
 import UserSelectionComponent from "../components/user-selection-component";
+import PlayModeComponent, {PlayMode} from "../components/play-mode-component";
 
 const NUM_TILES = 7;
 const TILE_GAP_PX = 8;
@@ -211,8 +212,10 @@ export default class HudSystem extends System {
     }
 
     private updateMeshesAndElements() {
-        const gameComponent = this.registry.getEntitiesWithComponents(HiveGameComponent)[0].getComponent(HiveGameComponent);
-        const {game, playerColor} = gameComponent;
+        const mode = this.registry.getSingletonComponent(PlayModeComponent);
+        const {game, playerColor: localColor} = this.registry.getSingletonComponent(HiveGameComponent);
+
+        const playerColor = mode.playMode() === PlayMode.Local ? localColor : mode.client().color();
 
         const counts = [
             game.getTilesRemaining(playerColor, HivePieceType.QueenBee),

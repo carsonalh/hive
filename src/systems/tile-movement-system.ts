@@ -3,19 +3,65 @@ import {Mesh, PlaneGeometry, Raycaster, Vector2} from "three";
 import MeshComponent from "../components/mesh-component";
 import TileComponent from "../components/tile-component";
 import {LEFT_BUTTON} from "../constants";
-import HudComponent from "../components/hud-component";
 import HiveGameComponent from "../components/hive-game-component";
 import CameraComponent from "../components/camera-component";
 import {screenToNdc} from "../util";
 import TileLayoutComponent from "../components/tile-layout-component";
 import {createTile} from "../tiles";
 import UserSelectionComponent from "../components/user-selection-component";
+import PlayModeComponent, {PlayMode} from "../components/play-mode-component";
+import {Move} from "../online-client";
+import {HexVector} from "../hex-grid";
+import {HivePieceType} from "../hive-game";
 
 /**
  * Responsible for making moves in the game.
  */
 export default class TileMovementSystem extends System {
     private raycaster = new Raycaster();
+    private previousPlayMode = PlayMode.Local;
+
+    onCreate() {
+        const mode = this.registry.getSingletonComponent(PlayModeComponent);
+
+        if (mode.playMode() === PlayMode.Online) {
+            mode.client().addReceiveMoveHandler(this.onReceiveMove.bind(this));
+        }
+    }
+
+    onUpdate() {
+        const mode = this.registry.getSingletonComponent(PlayModeComponent);
+
+        const currentMode = mode.playMode()
+
+        if (this.previousPlayMode !== currentMode && currentMode === PlayMode.Online) {
+            console.log('registering receive move');
+            mode.client().addReceiveMoveHandler(this.onReceiveMove.bind(this));
+        }
+
+        this.previousPlayMode = currentMode;
+    }
+
+    private onReceiveMove(move: Move) {
+        const {game} = this.registry.getSingletonComponent(HiveGameComponent);
+        const opponentColor = game.colorToMove();
+
+        if (move.moveType === 'PLACE') {
+            if (game.placeTile(move.pieceType, move.position)) {
+                const id = game.idOfLastPlaced();
+                if (id == null) {
+                    throw new Error('id cannot be null');
+                }
+
+                (async () => {
+                    const mesh = await createTile(opponentColor, move.pieceType);
+                    this.registry.addEntity([new MeshComponent(mesh), new TileComponent(id)]);
+                })();
+            }
+        } else {
+            game.moveTile(move.from, move.to);
+        }
+    }
 
     onMouseDown(e: MouseEvent) {
         if (e.button !== LEFT_BUTTON) {
@@ -30,6 +76,12 @@ export default class TileMovementSystem extends System {
         const hiveGameComponent = this.registry.getSingletonComponent(HiveGameComponent);
         const userSelection = this.registry.getSingletonComponent(UserSelectionComponent);
         const {game} = hiveGameComponent;
+
+        const mode = this.registry.getSingletonComponent(PlayModeComponent);
+
+        if (mode.playMode() === PlayMode.Online && game.colorToMove() !== mode.client().color()) {
+            return true;
+        }
 
         const tiles = this.registry.getEntitiesWithComponents(TileComponent);
         const meshes = tiles.map(t => t.getComponent(MeshComponent).mesh);
@@ -49,7 +101,7 @@ export default class TileMovementSystem extends System {
             const tile = game.tiles()[tileComponent.id];
 
             if (userSelection.position != null) {
-                if (game.moveTile(userSelection.position, tile.position)) {
+                if (this.moveTile(userSelection.position, tile.position)) {
                     tile.position = userSelection.position;
                     hiveGameComponent.playerColor = game.colorToMove();
                 }
@@ -65,9 +117,9 @@ export default class TileMovementSystem extends System {
             const hex = hexGrid.euclideanToHex(hit);
 
             if (userSelection.pieceType != null) {
-                const { pieceType} = userSelection;
+                const {pieceType} = userSelection;
                 const colorToMove = game.colorToMove();
-                if (game.placeTile(pieceType, hex)) {
+                if (this.placeTile(pieceType, hex)) {
                     const id = game.idOfLastPlaced();
                     if (id == null) {
                         throw new Error('id cannot be null');
@@ -81,12 +133,36 @@ export default class TileMovementSystem extends System {
                     })();
                 }
             } else if (userSelection.position != null) {
-                if (game.moveTile(userSelection.position, hex)) {
+                if (this.moveTile(userSelection.position, hex)) {
                     userSelection.position = null;
                     hiveGameComponent.playerColor = game.colorToMove();
                 }
             }
 
+            return true;
+        }
+
+        return false;
+    }
+
+    private moveTile(from: HexVector, to: HexVector): boolean {
+        const mode = this.registry.getSingletonComponent(PlayModeComponent);
+        const {game} = this.registry.getSingletonComponent(HiveGameComponent);
+
+        if (game.moveTile(from, to) && mode.playMode() === PlayMode.Online) {
+            mode.client().moveTile(from, to);
+            return true;
+        }
+
+        return false;
+    }
+
+    private placeTile(pieceType: HivePieceType, position: HexVector): boolean {
+        const mode = this.registry.getSingletonComponent(PlayModeComponent);
+        const {game} = this.registry.getSingletonComponent(HiveGameComponent);
+
+        if (game.placeTile(pieceType, position) && mode.playMode() === PlayMode.Online) {
+            mode.client().placeTile(pieceType, position);
             return true;
         }
 

@@ -8,7 +8,6 @@ import {
     PlaneGeometry,
     Vector3
 } from "three";
-import MoveManager, {LocalMoveManager} from "./move-manager";
 import System from "./systems/system";
 import RenderSystem from "./systems/render-system";
 import {EntityRegistry} from "./entity-registry";
@@ -24,14 +23,14 @@ import {HiveGame} from "./hive-game";
 import TileLayoutComponent from "./components/tile-layout-component";
 import TileLayoutSystem from "./systems/tile-layout-system";
 import UserSelectionComponent from "./components/user-selection-component";
+import OnlineClient from "./online-client";
+import PlayModeComponent from "./components/play-mode-component";
 
 export default class Game {
     private readonly systems: System[];
     private readonly registry = new EntityRegistry();
 
-    private moveManager: MoveManager = new LocalMoveManager();
-
-    public constructor() {
+    constructor() {
         {
             const light = new DirectionalLight(0xffffff, 1);
             light.position.copy(new Vector3(-1, -1, 1).normalize());
@@ -58,6 +57,7 @@ export default class Game {
         this.registry.addEntity([new HudComponent()]);
         this.registry.addEntity([new TileLayoutComponent()]);
         this.registry.addEntity([new UserSelectionComponent()]);
+        this.registry.addEntity([new PlayModeComponent()]);
 
         this.systems = [
             new CameraControllerSystem(this.registry),
@@ -121,8 +121,10 @@ export default class Game {
         });
     }
 
-    public setMoveManager(manager: MoveManager): void {
-        this.moveManager.destroy();
-        this.moveManager = manager;
+    /**
+     * If client is given, the game uses the client for the opponent, otherwise local play is used.
+     */
+    setClient(client?: OnlineClient): void {
+        this.registry.getSingletonComponent(PlayModeComponent).setClient(client);
     }
 }
