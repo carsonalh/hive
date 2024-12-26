@@ -29,4 +29,8 @@ export default class UserSelectionComponent extends Component {
 
         this._position = position;
     }
+
+    deselectAll() {
+        this._position = this._pieceType = null;
+    }
 }

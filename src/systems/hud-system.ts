@@ -213,9 +213,9 @@ export default class HudSystem extends System {
 
     private updateMeshesAndElements() {
         const mode = this.registry.getSingletonComponent(PlayModeComponent);
-        const {game, playerColor: localColor} = this.registry.getSingletonComponent(HiveGameComponent);
+        const {game} = this.registry.getSingletonComponent(HiveGameComponent);
 
-        const playerColor = mode.playMode() === PlayMode.Local ? localColor : mode.client().color();
+        const playerColor = mode.playMode() === PlayMode.Local ? game.colorToMove() : mode.client().color();
 
         const counts = [
             game.getTilesRemaining(playerColor, HivePieceType.QueenBee),

@@ -57,5 +57,20 @@ export class EntityRegistry {
 
         return components[0];
     }
+
+    getSingletonEntity<T extends Component>(component: ConstructorOf<T>): Entity {
+        const entities: Entity[] = [];
+        for(const e of this.entities) {
+            if (e.hasComponent(component)) {
+                entities.push(e);
+            }
+        }
+
+        if (entities.length !== 1) {
+            throw new Error(`could not get singleton entity (found ${entities.length})`);
+        }
+
+        return entities[0];
+    }
 }
 
