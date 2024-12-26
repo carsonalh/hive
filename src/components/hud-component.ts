@@ -43,6 +43,10 @@ export default class HudComponent extends Component {
         new ShapeGeometry(HEXAGON_SHAPE.clone()),
         new MeshBasicMaterial({color: 0xffffff})
     ));
+    backgroundMeshes = Array.from({length: 7}, () => new Mesh(
+        new ShapeGeometry(HEXAGON_SHAPE.clone()),
+        new MeshBasicMaterial({color: 0x252323})
+    ));
     marker = new Mesh(
         new ShapeGeometry(HEXAGON_SHAPE.clone()),
         new MeshBasicMaterial({color: 0x474545})

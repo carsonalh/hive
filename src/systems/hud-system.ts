@@ -38,6 +38,7 @@ export default class HudSystem extends System {
             scene,
             camera,
             backgroundPlane,
+            backgroundMeshes,
             marker,
             bubbleMeshes,
             bubbleElements,
@@ -77,9 +78,8 @@ export default class HudSystem extends System {
             mesh.rotateY(1 / 12 * 2 * Math.PI);
         }
 
-        for (const mesh of bubbleMeshes) {
-            scene.add(mesh);
-        }
+        scene.add(...backgroundMeshes);
+        scene.add(...bubbleMeshes);
 
         scene.add(backgroundPlane);
         scene.add(marker);
@@ -232,6 +232,7 @@ export default class HudSystem extends System {
             moveIndicator,
             marker,
             bubbleElements,
+            backgroundMeshes,
             bubbleMeshes,
             whiteQueenBee,
             whiteSoldierAnt,
@@ -287,7 +288,9 @@ export default class HudSystem extends System {
         );
         backgroundPlane.scale.applyMatrix4(this.scalePxToCamera);
 
-        for (let i = 0; i < blackMeshes.length; i++) {
+        const playerMeshes = playerColor === HiveColor.Black ? blackMeshes : whiteMeshes;
+
+        for (let i = 0; i < playerMeshes.length; i++) {
             const position = new Vector3(
                 HORIZONTAL_PADDING_PX + tileOuterDiameterPx / 2,
                 TILE_GAP_PX + tileInnerDiameterPx / 2 + i * (TILE_GAP_PX + tileInnerDiameterPx),
@@ -299,7 +302,7 @@ export default class HudSystem extends System {
             bubblePositionPx.add(position);
 
             bubbleMeshes[i].position.copy(bubblePositionPx);
-            bubbleMeshes[i].position.applyMatrix4(this.positionPxToCamera).setZ(1);
+            bubbleMeshes[i].position.applyMatrix4(this.positionPxToCamera).setZ(2);
             bubbleMeshes[i].scale.setScalar(BUBBLE_RADIUS_PX);
             bubbleMeshes[i].scale.applyMatrix4(this.scalePxToCamera);
             bubbleMeshes[i].visible = counts[i] >= 2;
@@ -310,16 +313,17 @@ export default class HudSystem extends System {
             bubbleElements[i].style.left = `${bubblePositionPx.x}px`;
             bubbleElements[i].style.top = `${bubblePositionPx.y}px`;
 
-            for (const meshes of [blackMeshes, whiteMeshes]) {
+            const mesh = playerMeshes[i];
+            mesh.visible = counts[i] >= 1;
+            mesh.scale.setScalar(tileOuterDiameterPx / 2);
+            mesh.scale.applyMatrix4(this.scalePxToCamera);
+            mesh.position.copy(position).setZ(1);
+            mesh.position.applyMatrix4(this.positionPxToCamera);
 
-                const mesh = meshes[i];
-
-                mesh.visible = counts[i] >= 1;
-                mesh.scale.setScalar(tileOuterDiameterPx / 2);
-                mesh.scale.applyMatrix4(this.scalePxToCamera);
-                mesh.position.copy(position);
-                mesh.position.applyMatrix4(this.positionPxToCamera);
-            }
+            backgroundMeshes[i].position.copy(position).setZ(0.5);
+            backgroundMeshes[i].position.applyMatrix4(this.positionPxToCamera);
+            backgroundMeshes[i].scale.setScalar(tileOuterDiameterPx / 2);
+            backgroundMeshes[i].scale.applyMatrix4(this.scalePxToCamera);
         }
 
         // Move indicator
@@ -347,12 +351,9 @@ export default class HudSystem extends System {
         }
 
         // Set visibilities
-        for (const mesh of blackMeshes) {
-            mesh.visible = playerColor === HiveColor.Black;
-        }
-
-        for (const mesh of whiteMeshes) {
-            mesh.visible = playerColor === HiveColor.White;
+        const opponentMeshes = playerColor === HiveColor.Black ? whiteMeshes : blackMeshes;
+        for (const mesh of opponentMeshes) {
+            mesh.visible = false;
         }
     }
 }
