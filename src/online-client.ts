@@ -19,7 +19,8 @@ export default class OnlineClient {
             id: string,
             socket: WebSocket,
             color: HiveColor,
-            nextMove: HiveColor,
+            /** Used as a buffer for if a receive picks up the client late. */
+            lastReceivedMove?: Move,
         } | null,
     } | null = null;
     private readonly receiveMoveHandlers: ((move: Move) => unknown)[] = [];
@@ -34,6 +35,10 @@ export default class OnlineClient {
 
     public addReceiveMoveHandler(handler: (move: Move) => unknown): void {
         this.receiveMoveHandlers.push(handler)
+
+        if (this.session?.game?.lastReceivedMove != null) {
+            handler(this.session?.game?.lastReceivedMove);
+        }
     }
 
     public addConnectHandler(handler: (color: HiveColor) => unknown): void {
@@ -106,7 +111,6 @@ export default class OnlineClient {
             id,
             socket,
             color: HiveColor.Black,
-            nextMove: HiveColor.Black,
         };
 
         socket.addEventListener('open', () => {
@@ -215,13 +219,15 @@ export default class OnlineClient {
                     case "MOVE": {
                         const from = new HexVector(response.move.movement.from.q, response.move.movement.from.r);
                         const to = new HexVector(response.move.movement.to.q, response.move.movement.to.r);
+                        const move = {
+                            moveType: "MOVE",
+                            from,
+                            to,
+                        } as const;
                         for (const handler of this.receiveMoveHandlers) {
-                            handler({
-                                moveType: "MOVE",
-                                from,
-                                to,
-                            });
+                            handler(move);
                         }
+                        this.session.game.lastReceivedMove = move;
                         break;
                     }
                     case "PLACE": {
@@ -237,13 +243,15 @@ export default class OnlineClient {
                             throw new Error('did not recognise piece type sent from server');
                         }
                         const position = new HexVector(response.move.placement.position.q, response.move.placement.position.r);
+                        const move = {
+                            moveType: "PLACE",
+                            pieceType,
+                            position,
+                        } as const;
                         for (const handler of this.receiveMoveHandlers) {
-                            handler({
-                                moveType: "PLACE",
-                                pieceType,
-                                position,
-                            });
+                            handler(move);
                         }
+                        this.session.game.lastReceivedMove = move;
                         break;
                     }
                 }
