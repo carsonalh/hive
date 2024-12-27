@@ -4,7 +4,6 @@ import CameraComponent from "../components/camera-component";
 import MeshComponent from "../components/mesh-component";
 import TileComponent from "../components/tile-component";
 import {EntityRegistry} from "../entity-registry";
-import {Entity} from "../entity";
 import {
     CAMERA_ANGLE_LERP,
     CAMERA_LERP,
@@ -13,13 +12,11 @@ import {
     EPSILON,
     SCROLL_FACTOR
 } from "../constants";
-import MouseStateTracker from "../mouse-state";
 import {rotateAboutVector} from "../util";
+import MouseStateComponent from "../components/mouse-state-component";
 
 export default class CameraControllerSystem extends System {
     private camera = new PerspectiveCamera();
-    private state = new MouseStateTracker();
-    private entity: Entity = null!;
     private ground = new Vector3(0, 0, 0);
     /** 0 <= angle <= pi / 2, typically closer to pi / 2 */
     private latitudeRadians: number = Math.PI / 2;
@@ -33,7 +30,7 @@ export default class CameraControllerSystem extends System {
         this.onResize();
         this.camera.up.set(0, 0, 1);
 
-        this.entity = this.registry.addEntity([new CameraComponent(this.camera)]);
+        this.registry.addEntityFromComponents([new CameraComponent(this.camera)]);
     }
 
     onWheel(e: WheelEvent) {
@@ -50,20 +47,9 @@ export default class CameraControllerSystem extends System {
         return false;
     }
 
-    onMouseDown(e: MouseEvent) {
-        this.state.onMouseDown(e);
-
-        return false;
-    }
-
-    onMouseUp(e: MouseEvent) {
-        this.state.onMouseUp(e);
-
-        return false;
-    }
-
     onMouseMove(e: MouseEvent): boolean {
-        if (!this.state.rightButtonDown) {
+        const mouseState = this.registry.getSingletonComponent(MouseStateComponent);
+        if (!mouseState.rightButtonDown) {
             return false;
         }
 
@@ -107,7 +93,8 @@ export default class CameraControllerSystem extends System {
         this.ground.lerp(midpoint, deltaTimeMs * CAMERA_LERP);
         const GOAL_LATITUDE = Math.PI / 2 - EPSILON;
         const GOAL_LONGITUDE = 0;
-        if (!this.state.rightButtonDown) {
+        const mouseState = this.registry.getSingletonComponent(MouseStateComponent);
+        if (!mouseState.rightButtonDown) {
             this.latitudeRadians += deltaTimeMs * CAMERA_ANGLE_LERP * (GOAL_LATITUDE - this.latitudeRadians);
             this.longitudeRadians += deltaTimeMs * CAMERA_ANGLE_LERP * (GOAL_LONGITUDE - this.longitudeRadians);
         }

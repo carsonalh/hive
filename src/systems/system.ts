@@ -6,6 +6,10 @@ export default abstract class System {
     onDestroy(): void {}
     onUpdate(deltaTimeMs: number): void {}
     /** Returns true if propagation should be stopped */
+    onMouseEnter(e: MouseEvent): boolean { return false; }
+    /** Returns true if propagation should be stopped */
+    onMouseLeave(e: MouseEvent): boolean { return false; }
+    /** Returns true if propagation should be stopped */
     onMouseDown(e: MouseEvent): boolean { return false; }
     /** Returns true if propagation should be stopped */
     onMouseUp(e: MouseEvent): boolean { return false; }

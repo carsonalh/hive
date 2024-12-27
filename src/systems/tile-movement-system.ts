@@ -7,12 +7,12 @@ import HiveGameComponent from "../components/hive-game-component";
 import CameraComponent from "../components/camera-component";
 import {screenToNdc} from "../util";
 import TileLayoutComponent from "../components/tile-layout-component";
-import {createTile} from "../tiles";
 import UserSelectionComponent from "../components/user-selection-component";
 import PlayModeComponent, {PlayMode} from "../components/play-mode-component";
 import {Move} from "../online-client";
 import {HexVector} from "../hex-grid";
 import {HiveGame, HivePieceType} from "../hive-game";
+import TileEntity from "../entities/tile-entity";
 
 /**
  * Responsible for making moves in the game.
@@ -50,11 +50,11 @@ export default class TileMovementSystem extends System {
                     throw new Error('id cannot be null');
                 }
 
-                // TODO create a mesh bank system
-                (async () => {
-                    const mesh = await createTile(opponentColor, move.pieceType);
-                    this.registry.addEntity([new MeshComponent(mesh), new TileComponent(id)]);
-                })();
+                // We don't want to be able to hover/select opponent tiles
+                const selectable = false;
+                TileEntity.create(opponentColor, move.pieceType, id, selectable).then(entity => {
+                    this.registry.addEntity(entity);
+                });
             }
         } else {
             game.moveTile(move.from, move.to);
@@ -92,15 +92,20 @@ export default class TileMovementSystem extends System {
         const hitTile = tileIntersections.length > 0;
         const hitBackground = backgroundIntersections.length > 0;
 
+        const playerColor = mode.playMode() === PlayMode.Online ? mode.client().color() : game.colorToMove();
+
         if (hitTile) {
             const hitTileComponent = tiles[tileMeshes.indexOf(tileIntersections[0].object as Mesh)]
                 .getComponent(TileComponent);
             const tile = game.tiles()[hitTileComponent.id];
 
+            if (tile.color !== playerColor) {
+                return true;
+            }
+
             if (userSelection.position != null) {
                 if (this.moveTile(userSelection.position, tile.position)) {
                     tile.position = userSelection.position;
-                    hiveGameComponent.playerColor = game.colorToMove();
                 }
             } else {
                 userSelection.position = tile.position;
@@ -121,17 +126,14 @@ export default class TileMovementSystem extends System {
                         throw new Error('id cannot be null');
                     }
 
-                    (async () => {
-                        const mesh = await createTile(colorToMove, pieceType);
+                    TileEntity.create(colorToMove, pieceType, id).then(entity => {
                         userSelection.deselectAll();
-                        hiveGameComponent.playerColor = game.colorToMove();
-                        this.registry.addEntity([new MeshComponent(mesh), new TileComponent(id)]);
-                    })();
+                        this.registry.addEntity(entity);
+                    })
                 }
             } else if (userSelection.position != null) {
                 if (this.moveTile(userSelection.position, hex)) {
                     userSelection.deselectAll();
-                    hiveGameComponent.playerColor = game.colorToMove();
                 }
             }
 

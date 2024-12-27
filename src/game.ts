@@ -1,6 +1,5 @@
 import {
     AmbientLight,
-    AxesHelper,
     Clock,
     DirectionalLight,
     Mesh,
@@ -13,7 +12,6 @@ import RenderSystem from "./systems/render-system";
 import {EntityRegistry} from "./entity-registry";
 import MeshComponent from "./components/mesh-component";
 import LightComponent from "./components/light-component";
-import Object3DComponent from "./components/object3d-component";
 import HiveGameComponent from "./components/hive-game-component";
 import HudComponent from "./components/hud-component";
 import TileMovementSystem from "./systems/tile-movement-system";
@@ -25,6 +23,9 @@ import TileLayoutSystem from "./systems/tile-layout-system";
 import UserSelectionComponent from "./components/user-selection-component";
 import OnlineClient from "./online-client";
 import PlayModeComponent from "./components/play-mode-component";
+import SelectionSystem from "./systems/selection-system";
+import MouseStateSystem from "./systems/mouse-state-system";
+import MouseStateComponent from "./components/mouse-state-component";
 
 export default class Game {
     private readonly systems: System[];
@@ -38,8 +39,8 @@ export default class Game {
             light.shadow.camera.lookAt(new Vector3(0, 0, 0));
             light.shadow.camera.near = -100.;
             const ambient = new AmbientLight(0xffffff, 1);
-            this.registry.addEntity([new LightComponent(light)]);
-            this.registry.addEntity([new LightComponent(ambient)]);
+            this.registry.addEntityFromComponents([new LightComponent(light)]);
+            this.registry.addEntityFromComponents([new LightComponent(ambient)]);
         }
 
         {
@@ -49,20 +50,22 @@ export default class Game {
                 roughness: 0.5,
             }));
             backgroundPlane.receiveShadow = true;
-            this.registry.addEntity([new MeshComponent(backgroundPlane)]);
+            this.registry.addEntityFromComponents([new MeshComponent(backgroundPlane)]);
         }
 
-        this.registry.addEntity([new Object3DComponent(new AxesHelper())]);
-        this.registry.addEntity([new HiveGameComponent(new HiveGame())]);
-        this.registry.addEntity([new HudComponent()]);
-        this.registry.addEntity([new TileLayoutComponent()]);
-        this.registry.addEntity([new UserSelectionComponent()]);
-        this.registry.addEntity([new PlayModeComponent()]);
+        this.registry.addEntityFromComponents([new HiveGameComponent(new HiveGame())]);
+        this.registry.addEntityFromComponents([new HudComponent()]);
+        this.registry.addEntityFromComponents([new TileLayoutComponent()]);
+        this.registry.addEntityFromComponents([new UserSelectionComponent()]);
+        this.registry.addEntityFromComponents([new PlayModeComponent()]);
+        this.registry.addEntityFromComponents([new MouseStateComponent()]);
 
         this.systems = [
             new CameraControllerSystem(this.registry),
             new TileMovementSystem(this.registry),
             new TileLayoutSystem(this.registry),
+            new SelectionSystem(this.registry),
+            new MouseStateSystem(this.registry),
         ];
 
         // intentionally last in the array of systems so update happens before render
@@ -76,6 +79,20 @@ export default class Game {
 
         const canvas = renderSystem.getCanvas();
 
+        canvas.addEventListener('mouseenter', e => {
+            for (let i = this.systems.length - 1; i >= 0; i--) {
+                if (this.systems[i].onMouseEnter(e)) {
+                    break;
+                }
+            }
+        });
+        canvas.addEventListener('mouseleave', e => {
+            for (let i = this.systems.length - 1; i >= 0; i--) {
+                if (this.systems[i].onMouseLeave(e)) {
+                    break;
+                }
+            }
+        });
         canvas.addEventListener('mousedown', e => {
             for (let i = this.systems.length - 1; i >= 0; i--) {
                 if (this.systems[i].onMouseDown(e)) {

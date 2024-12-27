@@ -1,5 +1,5 @@
 import Component from "./components/component";
-import {Entity} from "./entity";
+import {Entity} from "./entities/entity";
 import {ConstructorOf} from "./util";
 
 export class EntityRegistry {
@@ -8,7 +8,12 @@ export class EntityRegistry {
     constructor() {
     }
 
-    addEntity(components: Component[]): Entity {
+    addEntity(entity: Entity): Entity {
+        this.entities.push(entity);
+        return entity;
+    }
+
+    addEntityFromComponents(components: Component[]): Entity {
         const entity = new Entity(...components)
         this.entities.push(entity);
         return entity;
@@ -71,7 +76,7 @@ export class EntityRegistry {
 
     getSingletonEntity<T extends Component>(component: ConstructorOf<T>): Entity {
         const entities: Entity[] = [];
-        for(const e of this.entities) {
+        for (const e of this.entities) {
             if (e.hasComponent(component)) {
                 entities.push(e);
             }
