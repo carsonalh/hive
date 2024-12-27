@@ -21,6 +21,8 @@ interface HiveGameObject {
 
     legalMoves(game: unknown, position: IHexVector): IHexVector[];
 
+    legalPlacements(game: unknown): IHexVector[];
+
     tiles(game: unknown): ITile[];
 
     idOfLastPlaced(game: unknown): number;
@@ -125,6 +127,10 @@ export class HiveGame {
     public legalMoves(tile: HexVector): HexVector[] {
         const moves = hive.legalMoves(this.game, tile);
         return moves.map(m => new HexVector(m.q, m.r));
+    }
+
+    public legalPlacements(): HexVector[] {
+        return hive.legalPlacements(this.game).map(p => new HexVector(p.q, p.r));
     }
 
     public tiles(): HiveTile[] {

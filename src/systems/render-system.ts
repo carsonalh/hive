@@ -12,13 +12,14 @@ import MeshComponent from "../components/mesh-component";
 import {OutputPass} from "three/examples/jsm/postprocessing/OutputPass";
 
 export class RendererComponent extends Component {
-    constructor(public renderer: WebGLRenderer, public composer: EffectComposer) {
+    scene = new Scene();
+    composer: EffectComposer = null!
+    constructor(public renderer: WebGLRenderer) {
         super();
     }
 }
 
 export default class RenderSystem extends System {
-    private scene = new Scene();
     private hoverOutlinePass: OutlinePass = null!;
     private selectedOutlinePass: OutlinePass = null!;
     private readonly renderer: WebGLRenderer;
@@ -45,19 +46,21 @@ export default class RenderSystem extends System {
 
         document.body.appendChild(this.renderer.domElement);
 
-        this.scene.background = new Color(0x175c29);
-
         this.composer = new EffectComposer(this.renderer);
     }
 
     onCreate() {
-        this.registry.addEntityFromComponents([new RendererComponent(this.renderer, this.composer)]);
+        const rendererComponent = new RendererComponent(this.renderer);
+        rendererComponent.composer = this.composer;
+        rendererComponent.scene.background = new Color(0x175c29);
+        this.registry.addEntityFromComponents([rendererComponent]);
+        const {scene} = rendererComponent;
 
         const {camera} = this.registry.getSingletonComponent(CameraComponent);
-        this.composer.addPass(new RenderPass(this.scene, camera));
+        this.composer.addPass(new RenderPass(scene, camera));
         this.hoverOutlinePass = new OutlinePass(
             new Vector2(window.innerWidth, window.innerHeight),
-            this.scene,
+            scene,
             camera,
             []
         );
@@ -67,7 +70,7 @@ export default class RenderSystem extends System {
         this.hoverOutlinePass.edgeThickness = .25;
         this.selectedOutlinePass = new OutlinePass(
             new Vector2(window.innerWidth, window.innerHeight),
-            this.scene,
+            scene,
             camera,
             []
         );
@@ -89,11 +92,12 @@ export default class RenderSystem extends System {
     }
 
     onUpdate() {
-        this.scene.clear();
+        const {scene} = this.registry.getSingletonComponent(RendererComponent);
+        scene.clear();
 
         const objects = this.registry.getEntitiesWithComponents(Object3DComponent);
         for (const object of objects) {
-            this.scene.add(object.getComponent(Object3DComponent).object3d);
+            scene.add(object.getComponent(Object3DComponent).object3d);
         }
 
         const cameras = this.registry.getEntitiesWithComponents(CameraComponent);
