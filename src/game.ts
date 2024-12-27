@@ -19,13 +19,15 @@ import CameraControllerSystem from "./systems/camera-controller-system";
 import HudSystem from "./systems/hud-system";
 import {HiveGame} from "./hive-game";
 import TileLayoutComponent from "./components/tile-layout-component";
-import TileLayoutSystem from "./systems/tile-layout-system";
+import GameTilePositioningSystem from "./systems/game-tile-positioning-system";
 import UserSelectionComponent from "./components/user-selection-component";
 import OnlineClient from "./online-client";
 import PlayModeComponent from "./components/play-mode-component";
 import SelectionSystem from "./systems/selection-system";
 import MouseStateSystem from "./systems/mouse-state-system";
 import MouseStateComponent from "./components/mouse-state-component";
+import LegalMovePreviewSystem from "./systems/legal-move-preview-system";
+import HexLayoutSystem from "./systems/hex-layout-system";
 
 export default class Game {
     private readonly systems: System[];
@@ -63,9 +65,11 @@ export default class Game {
         this.systems = [
             new CameraControllerSystem(this.registry),
             new TileMovementSystem(this.registry),
-            new TileLayoutSystem(this.registry),
+            new GameTilePositioningSystem(this.registry),
+            new HexLayoutSystem(this.registry),
             new SelectionSystem(this.registry),
             new MouseStateSystem(this.registry),
+            new LegalMovePreviewSystem(this.registry),
         ];
 
         // intentionally last in the array of systems so update happens before render

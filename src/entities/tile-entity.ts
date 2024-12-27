@@ -5,12 +5,13 @@ import SelectableComponent from "../components/selectable-component";
 import TileComponent from "../components/tile-component";
 import {createTile} from "../tiles";
 import Component from "../components/component";
+import HexPositionComponent from "../components/hex-position-component";
 
 export default class TileEntity extends Entity {
     static async create(color: HiveColor, pieceType: HivePieceType, id: number, selectable = true): Promise<TileEntity> {
         const mesh = await createTile(color, pieceType);
 
-        const cs: Component[] = [new MeshComponent(mesh), new TileComponent(id)];
+        const cs: Component[] = [new MeshComponent(mesh), new TileComponent(id), new HexPositionComponent()];
         if (selectable) {
             cs.push(new SelectableComponent());
         }
