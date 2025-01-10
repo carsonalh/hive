@@ -26,7 +26,9 @@ function HiveOverlay() {
         <BrowserRouter>
             <Routes>
                 <Route index element={<HomePage/>}/>
-                <Route path='local' element={<LocalSceneLoader/>}/>
+                <Route path='local' element={<LocalSceneLoader/>}>
+                    <Route index element={<Play />} />
+                </Route>
                 <Route path='online' element={<OnlineSceneLoader/>}>
                     <Route index element={<OnlineMaster/>}/>
                     <Route path='create' element={<OnlineCreate/>}/>
@@ -62,6 +64,10 @@ function LocalSceneLoader() {
     return <Outlet/>;
 }
 
+function Play() {
+    return <Link to='..' className='hex-button back-button'>Back</Link>;
+}
+
 const OnlineClientContext = createContext<OnlineClient>(null!);
 const useOnlineClient = () => useContext(OnlineClientContext);
 
@@ -82,6 +88,7 @@ function OnlineMaster() {
         <div className="hex-button-container hosted-game-container">
             <Link to='create'>Create PvP</Link>
             <Link to='join'>Join PvP</Link>
+            <Link to='..'>Back</Link>
         </div>
     </div>;
 }
@@ -170,7 +177,7 @@ function OnlinePlay() {
         }
     }, []);
 
-    return showSplash ? <SplashScreen /> : null;
+    return showSplash ? <SplashScreen /> : <Play />;
 }
 
 function SplashScreen() {
