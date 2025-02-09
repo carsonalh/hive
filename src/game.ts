@@ -28,6 +28,8 @@ import MouseStateSystem from "./systems/mouse-state-system";
 import MouseStateComponent from "./components/mouse-state-component";
 import LegalMovePreviewSystem from "./systems/legal-move-preview-system";
 import HexLayoutSystem from "./systems/hex-layout-system";
+import MeshBankLoadSystem from "./systems/mesh-bank-load-system";
+import MeshBankComponent from "./components/mesh-bank-component";
 
 export default class Game {
     private readonly systems: System[];
@@ -61,8 +63,10 @@ export default class Game {
         this.registry.addEntityFromComponents([new UserSelectionComponent()]);
         this.registry.addEntityFromComponents([new PlayModeComponent()]);
         this.registry.addEntityFromComponents([new MouseStateComponent()]);
+        this.registry.addEntityFromComponents([new MeshBankComponent()]);
 
         this.systems = [
+            new MeshBankLoadSystem(this.registry),
             new CameraControllerSystem(this.registry),
             new TileMovementSystem(this.registry),
             new GameTilePositioningSystem(this.registry),

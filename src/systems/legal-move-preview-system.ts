@@ -11,6 +11,7 @@ import SelectableComponent from "../components/selectable-component";
 import {HiveColor, HivePieceType} from "../hive-game";
 import {createTile} from "../tiles";
 import PlayModeComponent, {PlayMode} from "../components/play-mode-component";
+import MeshBankComponent from "../components/mesh-bank-component";
 
 export default class LegalMovePreviewSystem extends System {
     private lastSelected: HexVector | HivePieceType | null = null;
@@ -76,26 +77,21 @@ export default class LegalMovePreviewSystem extends System {
                 const mode = this.registry.getSingletonComponent(PlayModeComponent);
                 const playerColor = mode.playMode() === PlayMode.Online ? mode.client().color() : game.colorToMove();
                 // currently no way of getting legal placements, must fix
+                const meshBankComponent = this.registry.getSingletonComponent(MeshBankComponent);
                 for (const position of game.legalPlacements()) {
-                    // TODO we really need a mesh bank, sending network requests in a loop now in a
-                    //  frame update... ._.
-                    (async () => {
-                        const mesh = await createTile(playerColor, pieceType);
-                        const material = mesh.material as Material;
-                        material.transparent = true;
-                        material.opacity = playerColor === HiveColor.Black ? 0.4 : 0.2;
-                        const protoMesh = mesh.clone();
-                        protoMesh.material = material;
-                        const hexPosition = new HexPositionComponent();
-                        hexPosition.position = position;
-                        hexPosition.stackHeight = 0;
-                        this.registry.addEntityFromComponents([
-                            new MeshComponent(protoMesh.clone()),
-                            hexPosition,
-                            new TilePreviewComponent(),
-                            new SelectableComponent(),
-                        ]);
-                    })();
+                    const mesh = meshBankComponent.getMesh(playerColor, pieceType).clone();
+                    const material = mesh.material as Material;
+                    material.transparent = true;
+                    material.opacity = playerColor === HiveColor.Black ? 0.4 : 0.2;
+                    const hexPosition = new HexPositionComponent();
+                    hexPosition.position = position;
+                    hexPosition.stackHeight = 0;
+                    this.registry.addEntityFromComponents([
+                        new MeshComponent(mesh),
+                        hexPosition,
+                        new TilePreviewComponent(),
+                        new SelectableComponent(),
+                    ]);
                 }
 
                 return;
