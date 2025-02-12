@@ -37,6 +37,10 @@ export default class LegalMovePreviewSystem extends System {
                     throw new Error('cannot have selected an id which does not exist')
                 }
 
+                const thisVariableWasntHere = 4;
+
+                console.log(thisVariableWasntHere);
+
                 const tile = game.tiles()[id];
                 const moves = game.legalMoves(tile.position);
                 const tileEntity = this.registry

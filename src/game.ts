@@ -20,6 +20,7 @@ import HudSystem from "./systems/hud-system";
 import {HiveGame} from "./hive-game";
 import TileLayoutComponent from "./components/tile-layout-component";
 import GameTilePositioningSystem from "./systems/game-tile-positioning-system";
+import GameOverSystem from "./systems/game-over-system";
 import UserSelectionComponent from "./components/user-selection-component";
 import OnlineClient from "./online-client";
 import PlayModeComponent from "./components/play-mode-component";
@@ -74,6 +75,7 @@ export default class Game {
             new SelectionSystem(this.registry),
             new MouseStateSystem(this.registry),
             new LegalMovePreviewSystem(this.registry),
+            new GameOverSystem(this.registry),
         ];
 
         // intentionally last in the array of systems so update happens before render

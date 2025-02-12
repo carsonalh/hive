@@ -19,6 +19,10 @@ interface HiveGameObject {
 
     moveTile(game: unknown, from: IHexVector, to: IHexVector): [unknown, boolean];
 
+    isOver(game: unknown): boolean;
+
+    winner(game: unknown): HiveColor;
+
     legalMoves(game: unknown, position: IHexVector): IHexVector[];
 
     legalPlacements(game: unknown): IHexVector[];
@@ -122,6 +126,15 @@ export class HiveGame {
         this.game = game;
 
         return success;
+    }
+
+    public isOver(): boolean {
+        return hive.isOver(this.game);
+    }
+
+    /** Only to be used if game.isOver() */
+    public winner(): HiveColor {
+        return hive.winner(this.game);
     }
 
     public legalMoves(tile: HexVector): HexVector[] {
