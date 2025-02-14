@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Single Page Application</title>
+	</head>
+	<body>
+		<main data-path='/'>
+			<h1>HiveGame.io</h1>
+			<!-- Leading '/' because this is the default route -->
+			<a href="/online" data-link>Play Online</a>
+			<a href="/local" data-link>Play Locally</a>
+		</main>
+
+		<template data-path="/online">
+			<a href="/online/create" data-link>Create PvP</a>
+			<a href="/online/join" data-link>Join PvP</a>
+			<a href="/" data-link>Back</a>
+		</template>
+
+		<template data-path="/online/create">
+			<a href="/online" data-link>Back</a>
+		</template>
+
+		<template data-path="/online/join">
+			<input type="text"></input>
+			<button>Join</button>
+			<a href="/online" data-link>Back</a>
+		</template>
+
+		<template data-path="/online/play">
+			<canvas></canvas>
+			<a href="/online" data-link>Back</a>
+		</template>
+
+		<template data-path="/local">
+			<canvas></canvas>
+			<a href="/" data-link>Back</a>
+		</template>
+
+		<script src="/static/index.js"></script>
+	</body>
+</html>
+

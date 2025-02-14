@@ -1,36 +1,5 @@
 {
-  "name": "hive",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "jest",
-    "build": "webpack",
-    "start": "webpack serve --mode development"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-router": "^7.1.0",
-    "three": "^0.169.0"
-  },
   "devDependencies": {
-    "@types/jest": "^29.5.13",
-    "@types/react": "^19.0.2",
-    "@types/react-dom": "^19.0.2",
-    "@types/react-router": "^5.1.20",
-    "@types/three": "^0.169.0",
-    "clean-webpack-plugin": "^4.0.0",
-    "html-webpack-plugin": "^5.6.0",
-    "jest": "^29.7.0",
-    "ts-jest": "^29.2.5",
-    "ts-loader": "^9.5.1",
-    "typescript": "^5.6.2",
-    "webpack": "^5.95.0",
-    "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.1.0"
+    "express": "^4.21.2"
   }
 }
