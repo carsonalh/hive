@@ -1,0 +1,3 @@
+[submodule "src/wasm/Unity"]
+	path = src/wasm/Unity
+	url = https://github.com/ThrowTheSwitch/Unity
