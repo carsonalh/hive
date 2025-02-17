@@ -6,10 +6,10 @@ clean:
 	rmdir /s /q build
 
 hive.wasm: hive.c
-	emcc -o $@ -s SIDE_MODULE=1 -s EXPORT_ALL=0 -Os -DHIVE_WASM $^
+	emcc -o $@ -s SIDE_MODULE=1 -Os -std=c11 -DHIVE_WASM $^
 
 hivetest.exe: hive.c hive_test.c hive.h | build/libunity.a
-	gcc -o $@ -Lbuild -IUnity/src -Wall -Wextra -Wpedantic -std=c99 -g $(filter %.c,$^) -lunity
+	gcc -o $@ -Lbuild -IUnity/src -Wall -Wextra -Wpedantic -std=c11 -g $(filter %.c,$^) -lunity
 
 build/libunity.a: | build
 	cmake --build build

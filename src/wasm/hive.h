@@ -60,11 +60,15 @@ typedef struct {
 	Tile tiles[MAX_TILES];
 } Game;
 
-EMSCRIPTEN_KEEPALIVE Game *create_hive_game(void);
+typedef enum {
+	COMPLETION_STATE_INCOMPLETE = 0,
+	COMPLETION_STATE_BLACK_WON,
+	COMPLETION_STATE_WHITE_WON,
+	COMPLETION_STATE_DRAW,
+} CompletionState;
+
+EMSCRIPTEN_KEEPALIVE Game *init_game(void);
 EMSCRIPTEN_KEEPALIVE bool place_tile(int32_t pos_q, int32_t pos_r, int32_t piece_type);
 EMSCRIPTEN_KEEPALIVE bool move_tile(int32_t from_q, int32_t from_r, int32_t to_q, int32_t to_r);
-
-// TODO either find a decent way of unpacking this struct from js, or make some
-// useful getters. (We know exactly which getters should be useful thanks to
-// the go wasm exports.)
+EMSCRIPTEN_KEEPALIVE CompletionState completion_state(void);
 
