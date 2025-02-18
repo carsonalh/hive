@@ -106,6 +106,11 @@ void test_follows_adjacency_rules_for_placement(void)
 	TEST_ASSERT_FALSE_MESSAGE(place_tile(0, 2, PIECE_TYPE_GRASSHOPPER), "A piece must be touching one if its own");
 }
 
+void test_cannot_move_before_move4(void)
+{
+	TEST_IGNORE();
+}
+
 void test_move_ant_around_the_hive(void)
 {
 	Game *game = init_game();
@@ -447,7 +452,7 @@ void test_pin_queen_and_surround(void)
 	TEST_ASSERT_TRUE(move_tile(-1, 0, 0, -1));                 // White, move 2
 	TEST_ASSERT_TRUE(move_tile(1, -1, 0, -1));                 // Black, move 3
 
-	TEST_ASSERT_NOT_EQUAL_MESSAGE(COMPLETION_STATE_INCOMPLETE, completion_state(), "Game being declared as over too early");
+	TEST_ASSERT_EQUAL_MESSAGE(COMPLETION_STATE_INCOMPLETE, completion_state(), "Game was declared as over too early");
 	
 	TEST_ASSERT_EQUAL_MESSAGE(COLOR_BLACK, game->color_to_move, "Did not skip white's move, though white had no available moves");
 	TEST_ASSERT_EQUAL_MESSAGE(4, game->move, "Did not skip white's move, though white had no available moves");
@@ -471,37 +476,31 @@ void test_pin_queen_and_surround(void)
 
 void test_get_legal_placements_basic(void)
 {
-	TEST_FAIL_MESSAGE("test unimplemented");
-	// game := CreateHiveGame()
-	// place_tile(0, 0, PIECE_TYPE_QUEEN_BEE)
-	//
-	// placementsMap := game.LegalPlacements()
-	//
-	// placements := make([]HexVectorInt, 0, 6)
-	// for pos := range placementsMap {
-	// 	placements = append(placements, pos)
-	// }
-	//
-	// if len(placements) != 6 {
-	// 	t.Errorf("Expected 6 legal placements but got %d", len(placements))
-	// }
-	//
-	// expectedPlacements := 0, 0.AdjacentVectors()
-	//
-	// for _, p := range expectedPlacements {
-	// 	found := false
-	//
-	// 	for _, q := range placements {
-	// 		if p == q {
-	// 			found = true
-	// 			break
-	// 		}
-	// 	}
-	//
-	// 	if !found {
-	// 		t.Errorf("Expected to find move %v but did not", p)
-	// 	}
-	// }
+	init_game();
+	place_tile(0, 0, PIECE_TYPE_QUEEN_BEE);
+
+	Vec2 placements[MAX_MOVES];
+	const int placements_len = legal_placements(placements);
+
+	TEST_ASSERT_EQUAL(6, placements_len);
+	const Vec2 adjacents[6] = {
+		{0, -1},
+		{1, -1},
+		{1, 0},
+		{0, 1},
+		{-1, 1},
+		{-1, 0},
+	};
+	for (int i = 0; i < 6; i++) {
+		bool found = false;
+		for (int j = 0; j < 6; j++) {
+			if (!memcmp(&adjacents[i], &placements[j], sizeof (Vec2))) {
+				found = true;
+				break;
+			}
+		}
+		TEST_ASSERT_TRUE_MESSAGE(found, "must find each tile adjacent to the first in the output");
+	}
 }
 
 int main(void)
@@ -514,6 +513,7 @@ int main(void)
 	RUN_TEST(test_ensures_queen_placed_by_move4);
 	RUN_TEST(test_cannot_place_more_pieces_than_player_has);
 	RUN_TEST(test_follows_adjacency_rules_for_placement);
+	RUN_TEST(test_cannot_move_before_move4);
 	RUN_TEST(test_move_ant_around_the_hive);
 	RUN_TEST(test_respects_freedom_to_move);
 	RUN_TEST(test_one_hive_rule);

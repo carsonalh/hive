@@ -50,6 +50,12 @@ typedef struct {
 
 #define MAX_TILES 26
 
+// this is a trivial upper bound to the surface area (in hexagons) of a hive
+// we can have at most 26 tiles on the board, each with at most 6 adjacent
+// places, each with at most 4 possible moves. I'm sure the actual limit is
+// much smaller than this (624 in total)
+#define MAX_MOVES (26*6*4)
+
 typedef struct {
 	/* what move we are on, starting at 1 */
 	uint32_t move;
@@ -58,6 +64,7 @@ typedef struct {
 	uint8_t black_reserve[PIECE_TYPE_COUNT];
 	uint8_t tiles_len;
 	Tile tiles[MAX_TILES];
+	bool complete;
 } Game;
 
 typedef enum {
@@ -71,4 +78,7 @@ EMSCRIPTEN_KEEPALIVE Game *init_game(void);
 EMSCRIPTEN_KEEPALIVE bool place_tile(int32_t pos_q, int32_t pos_r, int32_t piece_type);
 EMSCRIPTEN_KEEPALIVE bool move_tile(int32_t from_q, int32_t from_r, int32_t to_q, int32_t to_r);
 EMSCRIPTEN_KEEPALIVE CompletionState completion_state(void);
+
+int legal_placements(Vec2 placements[MAX_MOVES]);
+int legal_movements(const Tile *t, Vec2 moves[MAX_MOVES]);
 

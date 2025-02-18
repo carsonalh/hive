@@ -30,15 +30,10 @@ static const Vec2 unit_dirs[6] = {
 	{-1, 0},
 };
 
-// this is a trivial upper bound to the surface area (in hexagons) of a hive
-// we can have at most 26 tiles on the board, each with at most 6 adjacent
-// places, each with at most 4 possible moves. I'm sure the actual limit is
-// much smaller than this (624 in total)
-#define MAX_MOVES (26*6*4)
-
 // Each of these functions return the amount of legal moves there were
 // They ignore 'from' from the hive in their search
 // TODO Game* self param
+// TODO make 'moves' nullable?
 static int move_queen_bee  (Vec2 from, Vec2 moves[MAX_MOVES]);
 static int move_soldier_ant(Vec2 from, Vec2 moves[MAX_MOVES]);
 static int move_grasshopper(Vec2 from, Vec2 moves[MAX_MOVES]);
@@ -46,6 +41,8 @@ static int move_spider     (Vec2 from, Vec2 moves[MAX_MOVES]);
 static int move_beetle     (Vec2 from, Vec2 moves[MAX_MOVES]);
 static int move_ladybug    (Vec2 from, Vec2 moves[MAX_MOVES]);
 static int move_mosquito   (Vec2 from, Vec2 moves[MAX_MOVES]);
+
+static void advance_move(void);
 
 static inline bool v2_adjacent(Vec2 a, Vec2 b)
 {
@@ -71,14 +68,6 @@ static Tile *top_of_stack(Vec2 pos)
 		}
 	}
 	return top;
-}
-
-static void advance_move(void)
-{
-	game.move += game.color_to_move == COLOR_WHITE;
-	game.color_to_move = game.color_to_move == COLOR_BLACK
-		? COLOR_WHITE
-		: COLOR_BLACK;
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -374,30 +363,89 @@ static void move_once_around_hive(Vec2 from, int *places_len, Vec2 places[4])
 	}
 }
 
-EMSCRIPTEN_KEEPALIVE
-bool move_tile(int32_t from_q, int32_t from_r, int32_t to_q, int32_t to_r)
+int legal_placements(Vec2 placements[MAX_MOVES])
 {
-	const Vec2 from = { from_q, from_r };
-	const Vec2 to = { to_q, to_r };
+	if (game.move == 1) {
+		assert(game.color_to_move == COLOR_BLACK || game.tiles_len == 1);
 
-	Tile *t = top_of_stack(from);
+		if (game.color_to_move == COLOR_BLACK) {
+			placements[0] = (Vec2) { 0, 0 };
+			return 1;
+		} else {
+			for (int i = 0; i < 6; i++) {
+				placements[i] = (Vec2) {
+					unit_dirs[i].q + game.tiles[0].position.q,
+					unit_dirs[i].r + game.tiles[0].position.r,
+				};
+			}
+			return 6;
+		}
+	}
+
+	int len_placements = 0;
+	for (int i = 0; i < game.tiles_len; i++) {
+		const Vec2 pos = game.tiles[i].position;
+		Tile *t = top_of_stack(pos);
+		if (t != &game.tiles[i] || t->color != game.color_to_move) {
+			continue;
+		}
+		for (int j = 0; j < 6; j++) {
+			const Vec2 neighbour = { unit_dirs[i].q + pos.q, unit_dirs[i].r + pos.r };
+			Tile *u = top_of_stack(neighbour);
+			if (u) {
+				break;
+			} else {
+				bool cannot_place = false;
+				for (int k = 0; k < 6; k++) {
+					const Vec2 second_neighbour = { unit_dirs[i].q + neighbour.q, unit_dirs[i].r + neighbour.r };
+					Tile *v = top_of_stack(second_neighbour);
+					if (v && v->color != game.color_to_move) {
+						cannot_place = true;
+						break;
+					}
+				}
+				if (cannot_place) {
+					continue;
+				}
+			}
+			bool already_found = false;
+			for (int k = 0; k < len_placements; k++) {
+				if (v2_equal(placements[k], neighbour)) {
+					already_found = true;
+					break;
+				}
+			}
+			if (!already_found) {
+				placements[len_placements++] = neighbour;
+			}
+		}
+	}
+	return len_placements;
+}
+
+int legal_movements(const Tile *t, Vec2 moves[MAX_MOVES])
+{
+	assert(!t || t == top_of_stack(t->position) && "cannot move a tile which is covered by another");
+
+	const Vec2 from = t->position;
+
+	// TODO check queen placed
 
 	if (!t) {
 		// cannot move a tile which is not in play
-		return false;
+		return 0;
 	}
 
 	if (t->color != game.color_to_move) {
 		// cannot move an opponent's piece
-		return false;
+		return 0;
 	}
 
 	if (tile_is_bridge(from)) {
 		// this would be a violation of the one hive rule
-		return false;
+		return 0;
 	}
 
-	Vec2 moves[MAX_MOVES];
 	int len_moves;
 
 	switch (t->piece_type) {
@@ -430,6 +478,55 @@ bool move_tile(int32_t from_q, int32_t from_r, int32_t to_q, int32_t to_r)
 		assert(0 && "unreachable");
 	}
 
+	return len_moves;
+}
+
+static void advance_move_unchecked(void)
+{
+	game.move += game.color_to_move == COLOR_WHITE;
+	game.color_to_move = game.color_to_move == COLOR_BLACK
+		? COLOR_WHITE
+		: COLOR_BLACK;
+}
+
+static void advance_move(void)
+{
+	advance_move_unchecked();
+
+	bool has_legal_moves = false;
+	Vec2 moves[MAX_MOVES];
+	for (int i = 0; i < game.tiles_len; i++) {
+		const Tile *top = top_of_stack(game.tiles[i].position);
+		if (&game.tiles[i] != top) continue;
+		const int len_moves = legal_movements(&game.tiles[i], moves);
+		if (len_moves > 0) {
+			has_legal_moves = true;
+			break;
+		}
+	}
+	if (has_legal_moves) return;
+	const int len_moves = legal_placements(moves);
+	if (len_moves > 0) return;
+
+	// TODO check both players being unable to move once the pillbug is added
+	// to this implementation
+
+	advance_move_unchecked();
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool move_tile(int32_t from_q, int32_t from_r, int32_t to_q, int32_t to_r)
+{
+	const Vec2 from = { from_q, from_r };
+	const Vec2 to = { to_q, to_r };
+
+	Vec2 moves[MAX_MOVES];
+	int len_moves;
+
+	Tile *t = top_of_stack(from);
+
+	len_moves = legal_movements(t, moves);
+
 	int greatest_stack_height = -1;
 	for (int i = 0; i < game.tiles_len; i++) {
 		if (v2_equal(game.tiles[i].position, to)) {
@@ -438,6 +535,7 @@ bool move_tile(int32_t from_q, int32_t from_r, int32_t to_q, int32_t to_r)
 	}
 
 	for (int i = 0; i < len_moves; i++) {
+		assert(t && "null t should have resulted in 0 moves");
 		if (v2_equal(moves[i], to)) {
 			t->position = to;
 			t->stack_height = greatest_stack_height + 1;
@@ -474,9 +572,9 @@ CompletionState completion_state(void)
 			}
 
 			if (game.tiles[i].color == COLOR_BLACK) {
-				black_surrounded = surrounded;
+				black_surrounded = black_surrounded || surrounded;
 			} else {
-				white_surrounded = surrounded;
+				white_surrounded = white_surrounded || surrounded;
 			}
 		}
 	}
@@ -486,14 +584,14 @@ CompletionState completion_state(void)
 	}
 
 	if (white_surrounded) {
-		return COMPLETION_STATE_WHITE_WON;
-	}
-
-	if (black_surrounded) {
 		return COMPLETION_STATE_BLACK_WON;
 	}
 
-	return COMPLETION_STATE_DRAW;
+	if (black_surrounded) {
+		return COMPLETION_STATE_WHITE_WON;
+	}
+
+	return COMPLETION_STATE_INCOMPLETE;
 }
 
 static int move_queen_bee(Vec2 from, Vec2 moves[MAX_MOVES])
