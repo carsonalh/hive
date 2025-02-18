@@ -47,7 +47,7 @@ void test_alternates_between_black_and_white(void)
 
 void test_cannot_place_pieces_atop_others(void)
 {
-	init_game();
+	(void)init_game();
 
 	TEST_ASSERT_TRUE_MESSAGE(place_tile(0, 0, PIECE_TYPE_GRASSHOPPER), "Falsely flagged bad placement for initial Move");
 	TEST_ASSERT_FALSE_MESSAGE(place_tile(0, 0, PIECE_TYPE_BEETLE), "Cannot place tiles atop other tiles");
@@ -106,9 +106,14 @@ void test_follows_adjacency_rules_for_placement(void)
 	TEST_ASSERT_FALSE_MESSAGE(place_tile(0, 2, PIECE_TYPE_GRASSHOPPER), "A piece must be touching one if its own");
 }
 
-void test_cannot_move_before_move4(void)
+void test_cannot_move_before_queen_placed(void)
 {
-	TEST_IGNORE();
+	(void)init_game();
+
+	TEST_ASSERT_TRUE(place_tile(0, 0, PIECE_TYPE_GRASSHOPPER));
+	TEST_ASSERT_TRUE(place_tile(-1, 0, PIECE_TYPE_GRASSHOPPER));
+
+	TEST_ASSERT_FALSE(move_tile(0, 0, -2, 0));
 }
 
 void test_move_ant_around_the_hive(void)
@@ -354,7 +359,7 @@ void test_move_mosquito(void)
 
 void test_beetle_stack(void)
 {
-	init_game();
+	(void)init_game();
 
 	TEST_ASSERT_TRUE(place_tile(0, 0, PIECE_TYPE_GRASSHOPPER));
 	TEST_ASSERT_TRUE(place_tile(-1, 0, PIECE_TYPE_GRASSHOPPER));
@@ -476,7 +481,7 @@ void test_pin_queen_and_surround(void)
 
 void test_get_legal_placements_basic(void)
 {
-	init_game();
+	(void)init_game();
 	place_tile(0, 0, PIECE_TYPE_QUEEN_BEE);
 
 	Vec2 placements[MAX_MOVES];
@@ -513,7 +518,7 @@ int main(void)
 	RUN_TEST(test_ensures_queen_placed_by_move4);
 	RUN_TEST(test_cannot_place_more_pieces_than_player_has);
 	RUN_TEST(test_follows_adjacency_rules_for_placement);
-	RUN_TEST(test_cannot_move_before_move4);
+	RUN_TEST(test_cannot_move_before_queen_placed);
 	RUN_TEST(test_move_ant_around_the_hive);
 	RUN_TEST(test_respects_freedom_to_move);
 	RUN_TEST(test_one_hive_rule);

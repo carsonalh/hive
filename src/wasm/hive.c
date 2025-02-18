@@ -390,21 +390,20 @@ int legal_placements(Vec2 placements[MAX_MOVES])
 			continue;
 		}
 		for (int j = 0; j < 6; j++) {
-			const Vec2 neighbour = { unit_dirs[i].q + pos.q, unit_dirs[i].r + pos.r };
-			Tile *u = top_of_stack(neighbour);
-			if (u) {
-				break;
+			const Vec2 neighbour = { unit_dirs[j].q + pos.q, unit_dirs[j].r + pos.r };
+			if (top_of_stack(neighbour)) {
+				continue;
 			} else {
-				bool cannot_place = false;
+				bool can_place = true;
 				for (int k = 0; k < 6; k++) {
 					const Vec2 second_neighbour = { unit_dirs[i].q + neighbour.q, unit_dirs[i].r + neighbour.r };
-					Tile *v = top_of_stack(second_neighbour);
-					if (v && v->color != game.color_to_move) {
-						cannot_place = true;
+					const Tile *s = top_of_stack(second_neighbour);
+					if (s && s->color != game.color_to_move) {
+						can_place = false;
 						break;
 					}
 				}
-				if (cannot_place) {
+				if (!can_place) {
 					continue;
 				}
 			}
@@ -425,11 +424,23 @@ int legal_placements(Vec2 placements[MAX_MOVES])
 
 int legal_movements(const Tile *t, Vec2 moves[MAX_MOVES])
 {
-	assert(!t || t == top_of_stack(t->position) && "cannot move a tile which is covered by another");
+	assert((!t || t == top_of_stack(t->position)) && "cannot move a tile which is covered by another");
 
 	const Vec2 from = t->position;
 
-	// TODO check queen placed
+	bool queen_placed = false;
+
+	for (int i = 0; i < game.tiles_len; i++) {
+		if (game.tiles[i].color == game.color_to_move
+			&& game.tiles[i].piece_type == PIECE_TYPE_QUEEN_BEE) {
+			queen_placed = true;
+			break;
+		}
+	}
+
+	if (!queen_placed) {
+		return 0;
+	}
 
 	if (!t) {
 		// cannot move a tile which is not in play
