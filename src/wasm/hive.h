@@ -78,7 +78,6 @@ EMSCRIPTEN_KEEPALIVE Game *init_game(void);
 EMSCRIPTEN_KEEPALIVE bool place_tile(int32_t pos_q, int32_t pos_r, int32_t piece_type);
 EMSCRIPTEN_KEEPALIVE bool move_tile(int32_t from_q, int32_t from_r, int32_t to_q, int32_t to_r);
 EMSCRIPTEN_KEEPALIVE CompletionState completion_state(void);
-
-int legal_placements(Vec2 placements[MAX_MOVES]);
-int legal_movements(const Tile *t, Vec2 moves[MAX_MOVES]);
+EMSCRIPTEN_KEEPALIVE int legal_placements(Vec2 placements[MAX_MOVES]);
+EMSCRIPTEN_KEEPALIVE int legal_movements(const Tile *t, Vec2 moves[MAX_MOVES]);
 

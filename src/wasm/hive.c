@@ -363,6 +363,7 @@ static void move_once_around_hive(Vec2 from, int *places_len, Vec2 places[4])
 	}
 }
 
+EMSCRIPTEN_KEEPALIVE
 int legal_placements(Vec2 placements[MAX_MOVES])
 {
 	if (game.move == 1) {
@@ -422,6 +423,7 @@ int legal_placements(Vec2 placements[MAX_MOVES])
 	return len_placements;
 }
 
+EMSCRIPTEN_KEEPALIVE
 int legal_movements(const Tile *t, Vec2 moves[MAX_MOVES])
 {
 	assert((!t || t == top_of_stack(t->position)) && "cannot move a tile which is covered by another");
