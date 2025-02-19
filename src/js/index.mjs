@@ -191,7 +191,10 @@ function setupLocalGameplay() {
 			// We could even just preallocate the offset buffer here for future use
 			const offsetBuffer = gl.createBuffer();
 			gl.bindBuffer(gl.ARRAY_BUFFER, offsetBuffer);
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-2, 0, 0, 0, 0, 0, 2, 0, 0]), gl.STATIC_DRAW);
+			const pos0 = axialToCartesian({ q: -1, r: 0 });
+			const pos1 = axialToCartesian({ q: 0, r: 0 });
+			const pos2 = axialToCartesian({ q: 1, r: -1 });
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([pos0.x, 0, pos0.y, pos1.x, 0, pos1.y, pos2.x, 0, -pos2.y]), gl.STATIC_DRAW);
 			gl.enableVertexAttribArray(offsetLocation);
 			gl.vertexAttribPointer(offsetLocation, 3, gl.FLOAT, false, 0, 0);
 			gl.vertexAttribDivisor(offsetLocation, 1);
@@ -217,28 +220,30 @@ function setupLocalGameplay() {
 		}
 		lastFrame = msSinceBegin;
 
-		gl.clearColor(.5 * Math.sin(msSinceBegin / 1000) + .5, 0.5, 0.5, 1.0);
+		gl.clearColor(0.18, 0.14, 0.19, 1.0);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 		gl.useProgram(program);
 
 		const theta = msSinceBegin / 1000;
 		gl.uniformMatrix4fv(modelLocation, true, new Float32Array([
-			Math.cos(theta), 0, Math.sin(theta), 0,
-			0, 1, 0, 0,
-			-Math.sin(theta), 0, Math.cos(theta), 0,
-			0, 0, 0, 1,
-			// 1, 0, 0, 0,
+			// Math.cos(theta), 0, Math.sin(theta), 0,
 			// 0, 1, 0, 0,
-			// 0, 0, 1, 0,
+			// -Math.sin(theta), 0, Math.cos(theta), 0,
 			// 0, 0, 0, 1,
-		]));
-		gl.uniformMatrix4fv(viewLocation, true, new Float32Array([
 			1, 0, 0, 0,
 			0, 1, 0, 0,
-			0, 0, 1, 5,
+			0, 0, 1, 0,
 			0, 0, 0, 1,
 		]));
+		const cameraMatrix = new Float32Array([
+			1, 0, 0, 0,
+			0, 0, 1, 5,
+			0, -1, 0, 0,
+			0, 0, 0, 1,
+		]);
+		invert4x4(cameraMatrix, cameraMatrix);
+		gl.uniformMatrix4fv(viewLocation, true, cameraMatrix);
 		gl.uniformMatrix4fv(projectionLocation, true, perspectiveMatrix(75 * Math.PI / 180, gl.canvas.width / gl.canvas.height, 0.1, 100));
 
 		if (tileVao) {
@@ -257,6 +262,9 @@ function setupLocalGameplay() {
 	};
 }
 
+/**
+ * Looks in the negative z direction.
+ */
 function perspectiveMatrix(fov, aspect, near, far) {
 	console.assert(fov > 0);
 	console.assert(aspect !== 0);
@@ -264,8 +272,8 @@ function perspectiveMatrix(fov, aspect, near, far) {
 	return new Float32Array([
 		(1 / Math.tan(0.5 * fov)) / aspect, 0, 0, 0,
 		0, 1 / Math.tan(0.5 * fov), 0, 0,
-		0, 0, far / (far - near), - far * near / (far - near),
-		0, 0, 1, 0,
+		0, 0, -far / (far - near), -far * near / (far - near),
+		0, 0, -1, 0,
 	]);
 }
 
@@ -350,5 +358,85 @@ function loadGltf(arrayBuffer) {
 		normalArray,
 		indicesArray,
 	};
+}
+
+const TILE_INNER_RADIUS = 0.8;
+const TILE_PLACEMENT_GAP = 0.25;
+
+function axialToCartesian({ q, r }) {
+	console.assert(Number.isInteger(q));
+	console.assert(Number.isInteger(r));
+
+	const tileScale = 2 * TILE_INNER_RADIUS + TILE_PLACEMENT_GAP;
+
+	return {
+		x: (q + 0.5 * r) * tileScale,
+		y: -Math.sqrt(3) / 2 * r * tileScale,
+	};
+}
+
+/**
+ * Implementation copied from gl-matrix;
+ * https://github.com/toji/gl-matrix.git
+ */
+function invert4x4(src, dst) {
+	console.assert(src.length === 16);
+	console.assert(dst.length === 16);
+
+	let a00 = src[0],
+	a01 = src[1],
+	a02 = src[2],
+	a03 = src[3];
+	let a10 = src[4],
+	a11 = src[5],
+	a12 = src[6],
+	a13 = src[7];
+	let a20 = src[8],
+	a21 = src[9],
+	a22 = src[10],
+	a23 = src[11];
+	let a30 = src[12],
+	a31 = src[13],
+	a32 = src[14],
+	a33 = src[15];
+
+	let b00 = a00 * a11 - a01 * a10;
+	let b01 = a00 * a12 - a02 * a10;
+	let b02 = a00 * a13 - a03 * a10;
+	let b03 = a01 * a12 - a02 * a11;
+	let b04 = a01 * a13 - a03 * a11;
+	let b05 = a02 * a13 - a03 * a12;
+	let b06 = a20 * a31 - a21 * a30;
+	let b07 = a20 * a32 - a22 * a30;
+	let b08 = a20 * a33 - a23 * a30;
+	let b09 = a21 * a32 - a22 * a31;
+	let b10 = a21 * a33 - a23 * a31;
+	let b11 = a22 * a33 - a23 * a32;
+
+	// Calculate the determinant
+	let det =
+		b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+
+	if (!det) {
+		return null;
+	}
+	det = 1.0 / det;
+
+	dst[0] = (a11 * b11 - a12 * b10 + a13 * b09) * det;
+	dst[1] = (a02 * b10 - a01 * b11 - a03 * b09) * det;
+	dst[2] = (a31 * b05 - a32 * b04 + a33 * b03) * det;
+	dst[3] = (a22 * b04 - a21 * b05 - a23 * b03) * det;
+	dst[4] = (a12 * b08 - a10 * b11 - a13 * b07) * det;
+	dst[5] = (a00 * b11 - a02 * b08 + a03 * b07) * det;
+	dst[6] = (a32 * b02 - a30 * b05 - a33 * b01) * det;
+	dst[7] = (a20 * b05 - a22 * b02 + a23 * b01) * det;
+	dst[8] = (a10 * b10 - a11 * b08 + a13 * b06) * det;
+	dst[9] = (a01 * b08 - a00 * b10 - a03 * b06) * det;
+	dst[10] = (a30 * b04 - a31 * b02 + a33 * b00) * det;
+	dst[11] = (a21 * b02 - a20 * b04 - a23 * b00) * det;
+	dst[12] = (a11 * b07 - a10 * b09 - a12 * b06) * det;
+	dst[13] = (a00 * b09 - a01 * b07 + a02 * b06) * det;
+	dst[14] = (a31 * b01 - a30 * b03 - a32 * b00) * det;
+	dst[15] = (a20 * b03 - a21 * b01 + a22 * b00) * det;
 }
 
