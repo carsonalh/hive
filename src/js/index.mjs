@@ -1,5 +1,4 @@
-// ROUTING:
-
+// ROUTER
 function router() {
 	let match = views.find(v => v.path === window.location.pathname);
 	if (!match) {
@@ -72,7 +71,7 @@ if (document.readyState === 'loading') {
 	setupDom();
 }
 
-// LOCAL GAMEPLAY:
+// LOCAL GAMEPLAY
 function setupLocalGameplay() {
 	const canvas = document.querySelector('canvas');
 	const gl = canvas.getContext('webgl2');
@@ -92,6 +91,7 @@ function setupLocalGameplay() {
 	in vec3 a_position;
 	in vec2 a_texCoord;
 	in vec3 a_normal;
+	in vec3 a_offset;
 
 	out vec3 v_position;
 	out vec2 v_texCoord;
@@ -106,7 +106,9 @@ function setupLocalGameplay() {
 		v_position = a_position;
 		v_texCoord = a_texCoord;
 		v_normal = a_normal;
-		gl_Position = u_projection * u_view * u_model * vec4(a_position, 1.0);
+		vec4 pre_offset = u_model * vec4(a_position, 1.0);
+		vec4 post_offset = vec4(a_offset, 0.0) + pre_offset;
+		gl_Position = u_projection * u_view * post_offset;
 	}
 	`);
 	gl.compileShader(vertexShader);
@@ -146,60 +148,26 @@ function setupLocalGameplay() {
 	const positionLocation = gl.getAttribLocation(program, 'a_position');
 	const texCoordLocation = gl.getAttribLocation(program, 'a_texCoord');
 	const normalLocation = gl.getAttribLocation(program, 'a_normal');
+	const offsetLocation = gl.getAttribLocation(program, 'a_offset');
+	// console.log(coordLocation);
 
 	let tileVao = null;
 	let tileIndicesLength = -1;
 	let tileIndicesType = gl.UNSIGNED_SHORT;
 	let tileArrayBuffer = null;
-	fetch('/static/res/tile.glb', { responseType: 'arraybuffer' })
+	let coordBuffer = null;
+	fetch('/static/res/tile.glb', { responseType: 'arraybuffer', mode: 'same-origin', cache: 'force-cache' })
 		.then(async response => {
 			const arrayBuffer = await response.arrayBuffer();
-			const view = new DataView(arrayBuffer);
-			const magic = view.getUint32(0, true);
-			const version = view.getUint32(4, true);
-			const length = view.getUint32(8, true);
-
-			console.assert(magic == 0x46546c67, 'not a valid .glb file');
-			console.assert(version == 2, 'can only parse glTF version 2');
-			console.assert(length == arrayBuffer.byteLength, 'corrupted glTF file; byte length != length of array buffer');
-
-			const chunk0Length = view.getUint32(12, true);
-			const chunk0Type = view.getUint32(16, true);
-			console.assert(chunk0Type == 0x4E4F534A, chunk0Type, 'expect json chunk to be first');
-			console.assert(12 + chunk0Length < arrayBuffer.byteLength);
-
-			const chunk1Length = view.getUint32(12 + 8 + chunk0Length, true);
-			const chunk1Type = view.getUint32(12 + 8 + chunk0Length + 4, true);
-			console.assert(chunk1Type == 0x004E4942, 'expected to find a binary chunk as the second');
-			console.assert(12 + 8 + chunk0Length + 8 + chunk1Length == arrayBuffer.byteLength);
-
-			const decoder = new TextDecoder('utf-8');
-			const jsonArray = new Uint8Array(arrayBuffer, 20, chunk0Length);
-			const jsonMetadata = decoder.decode(jsonArray);
-			const metadata = JSON.parse(jsonMetadata);
-
-			const primitives = metadata.meshes[0].primitives[0];
-			const positionBufferView = metadata.bufferViews[primitives.attributes.POSITION];
-			const texCoordBufferView = metadata.bufferViews[primitives.attributes.TEXCOORD_0];
-			const normalBufferView = metadata.bufferViews[primitives.attributes.NORMAL];
-			const indicesBufferView = metadata.bufferViews[primitives.indices];
-			console.assert(positionBufferView.buffer == 0);
-			console.assert(texCoordBufferView.buffer == 0);
-			console.assert(normalBufferView.buffer == 0);
-			console.assert(indicesBufferView.buffer == 0);
+			const {
+				positionArray,
+				texCoordArray,
+				normalArray,
+				indicesArray,
+			} = loadGltf(arrayBuffer);
 
 			const vertexArray = gl.createVertexArray();
 			gl.bindVertexArray(vertexArray);
-
-			const positionArray = new Float32Array(arrayBuffer, 12 + 8 + chunk0Length + 8 + positionBufferView.byteOffset, positionBufferView.byteLength / 4);
-			const texCoordArray = new Float32Array(arrayBuffer, 12 + 8 + chunk0Length + 8 + texCoordBufferView.byteOffset, texCoordBufferView.byteLength / 4);
-			const normalArray = new Float32Array(arrayBuffer, 12 + 8 + chunk0Length + 8 + normalBufferView.byteOffset, normalBufferView.byteLength / 4);
-			const indicesArray = new Uint16Array(
-				arrayBuffer,
-				12 + 8 + chunk0Length + 8 + indicesBufferView.byteOffset,
-				indicesBufferView.byteLength / 2);
-
-			tileIndicesLength = indicesArray.length;
 
 			const positionBuffer = gl.createBuffer();
 			gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -220,6 +188,16 @@ function setupLocalGameplay() {
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indicesBuffer);
 			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indicesArray, gl.STATIC_DRAW);
 
+			// We could even just preallocate the offset buffer here for future use
+			const offsetBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, offsetBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-2, 0, 0, 0, 0, 0, 2, 0, 0]), gl.STATIC_DRAW);
+			gl.enableVertexAttribArray(offsetLocation);
+			gl.vertexAttribPointer(offsetLocation, 3, gl.FLOAT, false, 0, 0);
+			gl.vertexAttribDivisor(offsetLocation, 1);
+			coordBuffer = offsetBuffer;
+
+			tileIndicesLength = indicesArray.length;
 			tileVao = vertexArray;
 		});
 
@@ -265,7 +243,8 @@ function setupLocalGameplay() {
 
 		if (tileVao) {
 			gl.bindVertexArray(tileVao);
-			gl.drawElements(gl.TRIANGLES, tileIndicesLength, gl.UNSIGNED_SHORT, 0);
+			gl.drawElementsInstanced(gl.TRIANGLES, tileIndicesLength, gl.UNSIGNED_SHORT, 0, 3);
+			// gl.drawElements(gl.TRIANGLES, tileIndicesLength, gl.UNSIGNED_SHORT, 0);
 		}
 
 		nextFrame = window.requestAnimationFrame(animate);
@@ -288,5 +267,88 @@ function perspectiveMatrix(fov, aspect, near, far) {
 		0, 0, far / (far - near), - far * near / (far - near),
 		0, 0, 1, 0,
 	]);
+}
+
+/**
+ * This loader is _not_ meant to be a general-purpose gltf loader.
+ * It simply loads a model that is in the format we need for this game, and
+ * errors otherwise.
+ */
+function loadGltf(arrayBuffer) {
+	const view = new DataView(arrayBuffer);
+	const magic = view.getUint32(0, true);
+	const version = view.getUint32(4, true);
+	const length = view.getUint32(8, true);
+
+	console.assert(magic == 0x46546c67, 'not a valid .glb file');
+	console.assert(version == 2, 'can only parse glTF version 2');
+	console.assert(length == arrayBuffer.byteLength, 'corrupted glTF file; byte length != length of array buffer');
+
+	const chunk0Length = view.getUint32(12, true);
+	const chunk0Type = view.getUint32(16, true);
+	console.assert(chunk0Type == 0x4E4F534A, chunk0Type, 'expect json chunk to be first');
+	console.assert(12 + chunk0Length < arrayBuffer.byteLength);
+
+	const chunk1Length = view.getUint32(12 + 8 + chunk0Length, true);
+	const chunk1Type = view.getUint32(12 + 8 + chunk0Length + 4, true);
+	console.assert(chunk1Type == 0x004E4942, 'expected to find a binary chunk as the second');
+	console.assert(12 + 8 + chunk0Length + 8 + chunk1Length == arrayBuffer.byteLength);
+
+	const decoder = new TextDecoder('utf-8');
+	const jsonArray = new Uint8Array(arrayBuffer, 20, chunk0Length);
+	const jsonMetadata = decoder.decode(jsonArray);
+	const metadata = JSON.parse(jsonMetadata);
+
+	console.assert(metadata.meshes.length === 1);
+	const primitives = metadata.meshes[0].primitives[0];
+	const positionAccessor = metadata.accessors[primitives.attributes.POSITION];
+	console.assert(positionAccessor.type === 'VEC3'
+		&& positionAccessor.componentType === WebGLRenderingContext.FLOAT);
+	const texCoordAccessor = metadata.accessors[primitives.attributes.TEXCOORD_0];
+	console.assert(texCoordAccessor.type === 'VEC2'
+		&& texCoordAccessor.componentType === WebGLRenderingContext.FLOAT);
+	const normalAccessor = metadata.accessors[primitives.attributes.NORMAL];
+	console.assert(normalAccessor.type === 'VEC3'
+		&& normalAccessor.componentType === WebGLRenderingContext.FLOAT);
+	const indicesAccessor = metadata.accessors[primitives.indices];
+	console.assert(indicesAccessor.type === 'SCALAR'
+		&& indicesAccessor.componentType === WebGLRenderingContext.UNSIGNED_SHORT);
+
+	const positionBufferView = metadata.bufferViews[primitives.attributes.POSITION];
+	const texCoordBufferView = metadata.bufferViews[primitives.attributes.TEXCOORD_0];
+	const normalBufferView = metadata.bufferViews[primitives.attributes.NORMAL];
+	const indicesBufferView = metadata.bufferViews[primitives.indices];
+	console.assert(positionBufferView.buffer == 0);
+	console.assert(texCoordBufferView.buffer == 0);
+	console.assert(normalBufferView.buffer == 0);
+	console.assert(indicesBufferView.buffer == 0);
+
+	const positionArray = new Float32Array(
+		arrayBuffer,
+		12 + 8 + chunk0Length + 8 + positionBufferView.byteOffset,
+		positionBufferView.byteLength / 4
+	);
+	const texCoordArray = new Float32Array(
+		arrayBuffer,
+		12 + 8 + chunk0Length + 8 + texCoordBufferView.byteOffset,
+		texCoordBufferView.byteLength / 4
+	);
+	const normalArray = new Float32Array(
+		arrayBuffer,
+		12 + 8 + chunk0Length + 8 + normalBufferView.byteOffset,
+		normalBufferView.byteLength / 4
+	);
+	const indicesArray = new Uint16Array(
+		arrayBuffer,
+		12 + 8 + chunk0Length + 8 + indicesBufferView.byteOffset,
+		indicesBufferView.byteLength / 2
+	);
+
+	return {
+		positionArray,
+		texCoordArray,
+		normalArray,
+		indicesArray,
+	};
 }
 
