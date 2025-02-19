@@ -26,7 +26,7 @@ let viewTeardown = () => {};
 
 const main = document.querySelector('main');
 
-document.addEventListener('DOMContentLoaded', () => {
+function setupDom() {
 	// begin by making a list of all our routes for easy access
 	for (const html of document.querySelectorAll('[data-path]')) {
 		const path = html.getAttribute('data-path');
@@ -64,26 +64,39 @@ document.addEventListener('DOMContentLoaded', () => {
 	window.addEventListener('popstate', router);
 
 	router();
-});
+}
+
+if (document.readyState === 'loading') {
+	document.addEventListener('DOMContentLoaded', setupDom);
+} else {
+	setupDom();
+}
 
 // LOCAL GAMEPLAY:
 function setupLocalGameplay() {
+	// TODO some kind of loading screen
 	const canvas = document.querySelector('canvas');
+	const gl = canvas.getContext('webgl2');
 	const onResize = () => {
-		canvas.width = window.innerWidth;
-		canvas.height = window.innerHeight;
+		const width = window.innerWidth;
+		const height = window.innerHeight;
+		canvas.width = width;
+		canvas.height = height;
+		gl.viewport(0, 0, width, height);
 	};
+	onResize();
 	window.addEventListener('resize', onResize);
 
-	const gl = canvas.getContext('webgl2');
-
 	const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-	gl.shaderSource(vertexShader, `
-	attribute vec2 position;
+	gl.shaderSource(vertexShader, `#version 300 es
+	in vec2 a_position;
+
+	out vec2 v_position;
 
 	void main()
 	{
-		gl_Position = vec4(position, 0.0, 1.0);
+		v_position = a_position;
+		gl_Position = vec4(a_position, 0.0, 1.0);
 	}
 	`);
 	gl.compileShader(vertexShader);
@@ -92,10 +105,14 @@ function setupLocalGameplay() {
 	}
 
 	const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-	gl.shaderSource(fragmentShader, `
+	gl.shaderSource(fragmentShader, `#version 300 es
+	in highp vec2 v_position;
+
+	out highp vec4 f_color;
+
 	void main()
 	{
-		gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0);
+		f_color = vec4(v_position + .5, 1.0, 1.0);
 	}
 	`);
 	gl.compileShader(fragmentShader);
@@ -126,6 +143,12 @@ function setupLocalGameplay() {
 		0.5, -0.5,
 	]);
 	gl.bufferData(gl.ARRAY_BUFFER, array, gl.STATIC_DRAW);
+
+	const vao = gl.createVertexArray();
+	const positionLocation = gl.getAttribLocation(program, 'a_position');
+	gl.bindVertexArray(vao);
+	gl.enableVertexAttribArray(positionLocation);
+	gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, gl.FALSE, 0, 0);
 
 	let nextFrame;
 	let lastFrame;

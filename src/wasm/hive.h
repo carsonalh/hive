@@ -17,14 +17,14 @@ enum {
 
 enum {
 	PIECE_TYPE_QUEEN_BEE = 0,
-	PIECE_TYPE_SOLDIER_ANT,
-	PIECE_TYPE_GRASSHOPPER,
-	PIECE_TYPE_SPIDER,
-	PIECE_TYPE_BEETLE,
-	PIECE_TYPE_LADYBUG,
-	PIECE_TYPE_MOSQUITO,
+	PIECE_TYPE_SOLDIER_ANT = 1,
+	PIECE_TYPE_GRASSHOPPER = 2,
+	PIECE_TYPE_SPIDER = 3,
+	PIECE_TYPE_BEETLE = 4,
+	PIECE_TYPE_LADYBUG = 5,
+	PIECE_TYPE_MOSQUITO = 6,
 	/* the number of piece types */
-	PIECE_TYPE_COUNT,
+	PIECE_TYPE_COUNT = 7,
 };
 
 enum {
@@ -64,7 +64,6 @@ typedef struct {
 	uint8_t black_reserve[PIECE_TYPE_COUNT];
 	uint8_t tiles_len;
 	Tile tiles[MAX_TILES];
-	bool complete;
 } Game;
 
 typedef enum {

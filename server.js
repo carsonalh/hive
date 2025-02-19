@@ -3,7 +3,10 @@ const path = require('path');
 
 const app = express();
 
-app.use('/static', express.static('src'));
+app.use('/static/js', express.static('src/js'));
+app.use('/static/css', express.static('src/css'));
+app.use('/static/res', express.static('res'));
+app.use('/static/wasm', express.static('dist'));
 
 app.get('/*', (req, res) => {
 	res.sendFile(path.resolve('public', 'index.html'));
