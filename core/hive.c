@@ -1,10 +1,5 @@
 #include "hive.h"
 
-#include <assert.h>
-#include <string.h>
-
-#define max(a, b) ((a) > (b)) ? (a) : (b)
-
 // I believe that if we know the size and location of our memory
 // addresses, we can just write straight to the addresses.  A page
 // size in wasm is 64KB which is way larger than we'll need, so let's
@@ -12,7 +7,7 @@
 // let us also, for sanity's sake, not allocate anything in the NULL
 // address
 
-static Game game;
+static Game singleton;
 
 static inline bool v2_equal(Vec2 a, Vec2 b)
 {
@@ -34,15 +29,15 @@ static const Vec2 unit_dirs[6] = {
 // They ignore 'from' from the hive in their search
 // TODO Game* self param
 // TODO make 'moves' nullable?
-static int move_queen_bee  (Vec2 from, Vec2 moves[MAX_MOVES]);
-static int move_soldier_ant(Vec2 from, Vec2 moves[MAX_MOVES]);
-static int move_grasshopper(Vec2 from, Vec2 moves[MAX_MOVES]);
-static int move_spider     (Vec2 from, Vec2 moves[MAX_MOVES]);
-static int move_beetle     (Vec2 from, Vec2 moves[MAX_MOVES]);
-static int move_ladybug    (Vec2 from, Vec2 moves[MAX_MOVES]);
-static int move_mosquito   (Vec2 from, Vec2 moves[MAX_MOVES]);
+static int move_queen_bee  (const Game *game, Vec2 from, Vec2 moves[MAX_MOVES]);
+static int move_soldier_ant(const Game *game, Vec2 from, Vec2 moves[MAX_MOVES]);
+static int move_grasshopper(const Game *game, Vec2 from, Vec2 moves[MAX_MOVES]);
+static int move_spider     (const Game *game, Vec2 from, Vec2 moves[MAX_MOVES]);
+static int move_beetle     (const Game *game, Vec2 from, Vec2 moves[MAX_MOVES]);
+static int move_ladybug    (const Game *game, Vec2 from, Vec2 moves[MAX_MOVES]);
+static int move_mosquito   (const Game *game, Vec2 from, Vec2 moves[MAX_MOVES]);
 
-static void advance_move(void);
+static void advance_move(Game *game);
 
 static inline bool v2_adjacent(Vec2 a, Vec2 b)
 {
@@ -57,23 +52,23 @@ static inline bool v2_adjacent(Vec2 a, Vec2 b)
 	return false;
 }
 
-static Tile *top_of_stack(Vec2 pos)
+static Tile *top_of_stack(const Game *game, Vec2 pos)
 {
-	Tile *top = NULL;
-	for (int i = 0; i < game.tiles_len; i++) {
-		if (v2_equal(game.tiles[i].position, pos)) {
-			if (!top || game.tiles[i].stack_height > top->stack_height) {
-				top = &game.tiles[i];
+	const Tile *top = NULL;
+	for (int i = 0; i < game->tiles_len; i++) {
+		if (v2_equal(game->tiles[i].position, pos)) {
+			if (!top || game->tiles[i].stack_height > top->stack_height) {
+				top = &game->tiles[i];
 			}
 		}
 	}
-	return top;
+	return (Tile*)top;
 }
 
-EMSCRIPTEN_KEEPALIVE
-Game *init_game(void)
+HIVE_EXPORT(game_create)
+Game *game_create(void)
 {
-	game = (Game) {
+	singleton = (Game) {
 		.move = 1,
 		.color_to_move = COLOR_BLACK,
 		.white_reserve = {
@@ -97,36 +92,42 @@ Game *init_game(void)
 		.tiles_len = 0,
 		.tiles = {{{0}}},
 	};
-	return &game;
+	return &singleton;
 }
 
-EMSCRIPTEN_KEEPALIVE
-bool place_tile(int32_t pos_q, int32_t pos_r, int32_t piece_type)
+HIVE_EXPORT(game_free)
+void game_free(Game *game)
 {
-	uint8_t (*reserve)[PIECE_TYPE_COUNT] = game.color_to_move == COLOR_BLACK
-		? &game.black_reserve
-		: &game.white_reserve;
+	(void)game;
+}
+
+HIVE_EXPORT(game_place_tile)
+bool game_place_tile(Game *game, int32_t pos_q, int32_t pos_r, int32_t piece_type)
+{
+	uint8_t (*reserve)[PIECE_TYPE_COUNT] = game->color_to_move == COLOR_BLACK
+		? &game->black_reserve
+		: &game->white_reserve;
 
 	assert(piece_type < PIECE_TYPE_COUNT);
 	if ((*reserve)[piece_type] == 0) {
 		return false;
 	}
 
-	if (game.move == 1 && game.color_to_move == COLOR_BLACK) {
+	if (game->move == 1 && game->color_to_move == COLOR_BLACK) {
 		goto place_success;
 	}
 
 	bool queen_placed = false;
 
-	for (int i = 0; i < game.tiles_len; i++) {
-		if (game.tiles[i].color == game.color_to_move
-			&& game.tiles[i].piece_type == PIECE_TYPE_QUEEN_BEE) {
+	for (int i = 0; i < game->tiles_len; i++) {
+		if (game->tiles[i].color == game->color_to_move
+			&& game->tiles[i].piece_type == PIECE_TYPE_QUEEN_BEE) {
 			queen_placed = true;
 			break;
 		}
 	}
 
-	if (!queen_placed && game.move == 4 && piece_type != PIECE_TYPE_QUEEN_BEE) {
+	if (!queen_placed && game->move == 4 && piece_type != PIECE_TYPE_QUEEN_BEE) {
 		return false;
 	}
 
@@ -137,9 +138,9 @@ bool place_tile(int32_t pos_q, int32_t pos_r, int32_t piece_type)
 
 	for (int i = 0; i < 6; i++) {
 		const Vec2 neighbour = { pos.q + unit_dirs[i].q, pos.r + unit_dirs[i].r };
-		const Tile *top = top_of_stack(neighbour);
+		const Tile *top = top_of_stack(game, neighbour);
 		if (top) {
-			if (top->color == game.color_to_move) {
+			if (top->color == game->color_to_move) {
 				neighbours_friend = true;
 			} else {
 				neighbours_enemy = true;
@@ -147,17 +148,17 @@ bool place_tile(int32_t pos_q, int32_t pos_r, int32_t piece_type)
 		}
 	}
 
-	for (int i = 0; i < game.tiles_len; i++) {
-		if (v2_equal(game.tiles[i].position, pos)) {
+	for (int i = 0; i < game->tiles_len; i++) {
+		if (v2_equal(game->tiles[i].position, pos)) {
 			atop_other = true;
 			break;
 		}
 	}
 
-	if (game.move == 1 && neighbours_enemy) {
+	if (game->move == 1 && neighbours_enemy) {
 		assert(!neighbours_friend);
 		assert(!atop_other);
-		assert(game.color_to_move == COLOR_WHITE && "black should have already been handled");
+		assert(game->color_to_move == COLOR_WHITE && "black should have already been handled");
 		goto place_success;
 	}
 
@@ -170,14 +171,14 @@ bool place_tile(int32_t pos_q, int32_t pos_r, int32_t piece_type)
 	}
 
 place_success:
-	game.tiles[game.tiles_len++] = (Tile) {
+	game->tiles[game->tiles_len++] = (Tile) {
 		.position = { pos_q, pos_r },
-		.color = game.color_to_move,
+		.color = game->color_to_move,
 		.piece_type = piece_type,
 		.stack_height = 0,
 	};
 	(*reserve)[piece_type]--;
-	advance_move();
+	advance_move(game);
 	return true;
 }
 
@@ -195,14 +196,14 @@ static int popcount(uint64_t x)
 
 // We get our terminology from graph theory
 // https://en.wikipedia.org/wiki/Bridge_(graph_theory)
-static bool tile_is_bridge(Vec2 pos)
+static bool tile_is_bridge(const Game *game, Vec2 pos)
 {
 	Vec2 neighbours[6];
 	int neighbours_len = 0;
 
-	for (int i = 0; i < game.tiles_len; i++) {
-		if (v2_adjacent(pos, game.tiles[i].position)) {
-			neighbours[neighbours_len++] = game.tiles[i].position;
+	for (int i = 0; i < game->tiles_len; i++) {
+		if (v2_adjacent(pos, game->tiles[i].position)) {
+			neighbours[neighbours_len++] = game->tiles[i].position;
 		}
 	}
 
@@ -243,9 +244,9 @@ static bool tile_is_bridge(Vec2 pos)
 			continue;
 		}
 
-		for (int i = 0; i < game.tiles_len; i++) {
-			if (v2_adjacent(game.tiles[i].position, next)) {
-				queue[queue_next++] = game.tiles[i].position;
+		for (int i = 0; i < game->tiles_len; i++) {
+			if (v2_adjacent(game->tiles[i].position, next)) {
+				queue[queue_next++] = game->tiles[i].position;
 			}
 		}
 
@@ -287,9 +288,9 @@ static bool tile_is_bridge(Vec2 pos)
 				continue;
 			}
 
-			for (int j = 0; j < game.tiles_len; j++) {
+			for (int j = 0; j < game->tiles_len; j++) {
 				for (int k = 0; k < 6; k++) {
-					const Vec2 tile_pos = game.tiles[j].position;
+					const Vec2 tile_pos = game->tiles[j].position;
 					const Vec2 with_diff = { unit_dirs[k].q + next.q, unit_dirs[k].r + next.r };
 					if (v2_equal(tile_pos, with_diff)) {
 						queue[queue_next++] = tile_pos;
@@ -304,7 +305,7 @@ static bool tile_is_bridge(Vec2 pos)
 	return true;
 }
 
-static void move_once_around_hive(Vec2 from, int *places_len, Vec2 places[4])
+static void move_once_around_hive(const Game *game, Vec2 from, int *places_len, Vec2 places[4])
 {
 	assert(places_len != NULL);
 
@@ -324,9 +325,9 @@ static void move_once_around_hive(Vec2 from, int *places_len, Vec2 places[4])
 		adjacents[i].r += from.r;
 	}
 
-	for (int i = 0; i < game.tiles_len; i++) {
+	for (int i = 0; i < game->tiles_len; i++) {
 		for (int j = 0; j < 6; j++) {
-			if (v2_equal(game.tiles[i].position, adjacents[j])) {
+			if (v2_equal(game->tiles[i].position, adjacents[j])) {
 				occupied |= 1 << j;
 			}
 		}
@@ -363,20 +364,20 @@ static void move_once_around_hive(Vec2 from, int *places_len, Vec2 places[4])
 	}
 }
 
-EMSCRIPTEN_KEEPALIVE
-int legal_placements(Vec2 placements[MAX_MOVES])
+HIVE_EXPORT(game_legal_placements)
+int game_legal_placements(const Game *game, Vec2 placements[MAX_MOVES])
 {
-	if (game.move == 1) {
-		assert(game.color_to_move == COLOR_BLACK || game.tiles_len == 1);
+	if (game->move == 1) {
+		assert(game->color_to_move == COLOR_BLACK || game->tiles_len == 1);
 
-		if (game.color_to_move == COLOR_BLACK) {
+		if (game->color_to_move == COLOR_BLACK) {
 			placements[0] = (Vec2) { 0, 0 };
 			return 1;
 		} else {
 			for (int i = 0; i < 6; i++) {
 				placements[i] = (Vec2) {
-					unit_dirs[i].q + game.tiles[0].position.q,
-					unit_dirs[i].r + game.tiles[0].position.r,
+					unit_dirs[i].q + game->tiles[0].position.q,
+					unit_dirs[i].r + game->tiles[0].position.r,
 				};
 			}
 			return 6;
@@ -384,22 +385,22 @@ int legal_placements(Vec2 placements[MAX_MOVES])
 	}
 
 	int len_placements = 0;
-	for (int i = 0; i < game.tiles_len; i++) {
-		const Vec2 pos = game.tiles[i].position;
-		Tile *t = top_of_stack(pos);
-		if (t != &game.tiles[i] || t->color != game.color_to_move) {
+	for (int i = 0; i < game->tiles_len; i++) {
+		const Vec2 pos = game->tiles[i].position;
+		const Tile *t = top_of_stack(game, pos);
+		if (t != &game->tiles[i] || t->color != game->color_to_move) {
 			continue;
 		}
 		for (int j = 0; j < 6; j++) {
 			const Vec2 neighbour = { unit_dirs[j].q + pos.q, unit_dirs[j].r + pos.r };
-			if (top_of_stack(neighbour)) {
+			if (top_of_stack(game, neighbour)) {
 				continue;
 			} else {
 				bool can_place = true;
 				for (int k = 0; k < 6; k++) {
 					const Vec2 second_neighbour = { unit_dirs[i].q + neighbour.q, unit_dirs[i].r + neighbour.r };
-					const Tile *s = top_of_stack(second_neighbour);
-					if (s && s->color != game.color_to_move) {
+					const Tile *s = top_of_stack(game, second_neighbour);
+					if (s && s->color != game->color_to_move) {
 						can_place = false;
 						break;
 					}
@@ -423,18 +424,18 @@ int legal_placements(Vec2 placements[MAX_MOVES])
 	return len_placements;
 }
 
-EMSCRIPTEN_KEEPALIVE
-int legal_movements(const Tile *t, Vec2 moves[MAX_MOVES])
+HIVE_EXPORT(game_legal_movements)
+int game_legal_movements(const Game *game, const Tile *t, Vec2 moves[MAX_MOVES])
 {
-	assert((!t || t == top_of_stack(t->position)) && "cannot move a tile which is covered by another");
+	assert((!t || t == top_of_stack(game, t->position)) && "cannot move a tile which is covered by another");
 
 	const Vec2 from = t->position;
 
 	bool queen_placed = false;
 
-	for (int i = 0; i < game.tiles_len; i++) {
-		if (game.tiles[i].color == game.color_to_move
-			&& game.tiles[i].piece_type == PIECE_TYPE_QUEEN_BEE) {
+	for (int i = 0; i < game->tiles_len; i++) {
+		if (game->tiles[i].color == game->color_to_move
+			&& game->tiles[i].piece_type == PIECE_TYPE_QUEEN_BEE) {
 			queen_placed = true;
 			break;
 		}
@@ -449,12 +450,12 @@ int legal_movements(const Tile *t, Vec2 moves[MAX_MOVES])
 		return 0;
 	}
 
-	if (t->color != game.color_to_move) {
+	if (t->color != game->color_to_move) {
 		// cannot move an opponent's piece
 		return 0;
 	}
 
-	if (tile_is_bridge(from)) {
+	if (tile_is_bridge(game, from)) {
 		// this would be a violation of the one hive rule
 		return 0;
 	}
@@ -463,28 +464,28 @@ int legal_movements(const Tile *t, Vec2 moves[MAX_MOVES])
 
 	switch (t->piece_type) {
 	case PIECE_TYPE_QUEEN_BEE:
-		len_moves = move_queen_bee(from, moves);
+		len_moves = move_queen_bee(game, from, moves);
 		break;
 	case PIECE_TYPE_SOLDIER_ANT:
-		len_moves = move_soldier_ant(from, moves);
+		len_moves = move_soldier_ant(game, from, moves);
 		break;
 	case PIECE_TYPE_GRASSHOPPER:
-		len_moves = move_grasshopper(from, moves);
+		len_moves = move_grasshopper(game, from, moves);
 		break;
 	case PIECE_TYPE_SPIDER:
-		len_moves = move_spider(from, moves);
+		len_moves = move_spider(game, from, moves);
 		break;
 	case PIECE_TYPE_BEETLE:
-		len_moves = move_beetle(from, moves);
+		len_moves = move_beetle(game, from, moves);
 		break;
 	case PIECE_TYPE_LADYBUG:
-		len_moves = move_ladybug(from, moves);
+		len_moves = move_ladybug(game, from, moves);
 		break;
 	case PIECE_TYPE_MOSQUITO:
 		if (t->stack_height > 0) {
-			len_moves = move_beetle(from, moves);
+			len_moves = move_beetle(game, from, moves);
 		} else {
-			len_moves = move_mosquito(from, moves);
+			len_moves = move_mosquito(game, from, moves);
 		}
 		break;
 	default:
@@ -494,41 +495,41 @@ int legal_movements(const Tile *t, Vec2 moves[MAX_MOVES])
 	return len_moves;
 }
 
-static void advance_move_unchecked(void)
+static void advance_move_unchecked(Game *game)
 {
-	game.move += game.color_to_move == COLOR_WHITE;
-	game.color_to_move = game.color_to_move == COLOR_BLACK
+	game->move += game->color_to_move == COLOR_WHITE;
+	game->color_to_move = game->color_to_move == COLOR_BLACK
 		? COLOR_WHITE
 		: COLOR_BLACK;
 }
 
-static void advance_move(void)
+static void advance_move(Game *game)
 {
-	advance_move_unchecked();
+	advance_move_unchecked(game);
 
 	bool has_legal_moves = false;
 	Vec2 moves[MAX_MOVES];
-	for (int i = 0; i < game.tiles_len; i++) {
-		const Tile *top = top_of_stack(game.tiles[i].position);
-		if (&game.tiles[i] != top) continue;
-		const int len_moves = legal_movements(&game.tiles[i], moves);
+	for (int i = 0; i < game->tiles_len; i++) {
+		const Tile *top = top_of_stack(game, game->tiles[i].position);
+		if (&game->tiles[i] != top) continue;
+		const int len_moves = game_legal_movements(game, &game->tiles[i], moves);
 		if (len_moves > 0) {
 			has_legal_moves = true;
 			break;
 		}
 	}
 	if (has_legal_moves) return;
-	const int len_moves = legal_placements(moves);
+	const int len_moves = game_legal_placements(game, moves);
 	if (len_moves > 0) return;
 
 	// TODO check both players being unable to move once the pillbug is added
 	// to this implementation
 
-	advance_move_unchecked();
+	advance_move_unchecked(game);
 }
 
-EMSCRIPTEN_KEEPALIVE
-bool move_tile(int32_t from_q, int32_t from_r, int32_t to_q, int32_t to_r)
+HIVE_EXPORT(game_move_tile)
+bool game_move_tile(Game *game, int32_t from_q, int32_t from_r, int32_t to_q, int32_t to_r)
 {
 	const Vec2 from = { from_q, from_r };
 	const Vec2 to = { to_q, to_r };
@@ -536,14 +537,14 @@ bool move_tile(int32_t from_q, int32_t from_r, int32_t to_q, int32_t to_r)
 	Vec2 moves[MAX_MOVES];
 	int len_moves;
 
-	Tile *t = top_of_stack(from);
+	Tile *t = top_of_stack(game, from);
 
-	len_moves = legal_movements(t, moves);
+	len_moves = game_legal_movements(game, t, moves);
 
 	int greatest_stack_height = -1;
-	for (int i = 0; i < game.tiles_len; i++) {
-		if (v2_equal(game.tiles[i].position, to)) {
-			greatest_stack_height = max(greatest_stack_height, game.tiles[i].stack_height);
+	for (int i = 0; i < game->tiles_len; i++) {
+		if (v2_equal(game->tiles[i].position, to)) {
+			greatest_stack_height = max(greatest_stack_height, game->tiles[i].stack_height);
 		}
 	}
 
@@ -552,7 +553,7 @@ bool move_tile(int32_t from_q, int32_t from_r, int32_t to_q, int32_t to_r)
 		if (v2_equal(moves[i], to)) {
 			t->position = to;
 			t->stack_height = greatest_stack_height + 1;
-			advance_move();
+			advance_move(game);
 			return true;
 		}
 	}
@@ -560,20 +561,20 @@ bool move_tile(int32_t from_q, int32_t from_r, int32_t to_q, int32_t to_r)
 	return false;
 }
 
-EMSCRIPTEN_KEEPALIVE
-CompletionState completion_state(void)
+HIVE_EXPORT(game_completion_state)
+CompletionState game_completion_state(const Game *game)
 {
 	bool white_surrounded = false, black_surrounded = false;
 
-	for (int i = 0; i < game.tiles_len; i++) {
-		if (game.tiles[i].piece_type == PIECE_TYPE_QUEEN_BEE) {
-			const Vec2 pos = game.tiles[i].position;
+	for (int i = 0; i < game->tiles_len; i++) {
+		if (game->tiles[i].piece_type == PIECE_TYPE_QUEEN_BEE) {
+			const Vec2 pos = game->tiles[i].position;
 			bool surrounded = true;
 			for (int j = 0; j < 6; j++) {
 				const Vec2 neighbour = { unit_dirs[j].q + pos.q, unit_dirs[j].r + pos.r };
 				bool neighbour_found = false;
-				for (int k = 0; k < game.tiles_len; k++) {
-					if (v2_equal(game.tiles[k].position, neighbour)) {
+				for (int k = 0; k < game->tiles_len; k++) {
+					if (v2_equal(game->tiles[k].position, neighbour)) {
 						neighbour_found = true;
 						break;
 					}
@@ -584,7 +585,7 @@ CompletionState completion_state(void)
 				}
 			}
 
-			if (game.tiles[i].color == COLOR_BLACK) {
+			if (game->tiles[i].color == COLOR_BLACK) {
 				black_surrounded = black_surrounded || surrounded;
 			} else {
 				white_surrounded = white_surrounded || surrounded;
@@ -607,14 +608,14 @@ CompletionState completion_state(void)
 	return COMPLETION_STATE_INCOMPLETE;
 }
 
-static int move_queen_bee(Vec2 from, Vec2 moves[MAX_MOVES])
+static int move_queen_bee(const Game *game, Vec2 from, Vec2 moves[MAX_MOVES])
 {
 	int moves_len;
-	move_once_around_hive(from, &moves_len, moves);
+	move_once_around_hive(game, from, &moves_len, moves);
 	return moves_len;
 }
 
-static int move_soldier_ant(Vec2 from, Vec2 moves[MAX_MOVES])
+static int move_soldier_ant(const Game *game, Vec2 from, Vec2 moves[MAX_MOVES])
 {
 	// we exclude 'from' from the moves
 	int moves_len = 0;
@@ -645,7 +646,7 @@ static int move_soldier_ant(Vec2 from, Vec2 moves[MAX_MOVES])
 		assert(queue_next + 4 <= MAX_MOVES);
 
 		int len_next_moves;
-		move_once_around_hive(next, &len_next_moves, &queue[queue_next]);
+		move_once_around_hive(game, next, &len_next_moves, &queue[queue_next]);
 		queue_next += len_next_moves;
 
 		if (!v2_equal(next, from)) {
@@ -657,7 +658,7 @@ static int move_soldier_ant(Vec2 from, Vec2 moves[MAX_MOVES])
 	return moves_len;
 }
 
-static int move_grasshopper(Vec2 from, Vec2 moves[MAX_MOVES])
+static int move_grasshopper(const Game *game, Vec2 from, Vec2 moves[MAX_MOVES])
 {
 	int len_moves = 0;
 	for (int i = 0; i < 6; i++) {
@@ -668,8 +669,8 @@ static int move_grasshopper(Vec2 from, Vec2 moves[MAX_MOVES])
 		do {
 			found = false;
 			search = (Vec2) { search.q + unit_dirs[i].q, search.r + unit_dirs[i].r };
-			for (int j = 0; j < game.tiles_len; j++) {
-				if (v2_equal(game.tiles[j].position, search)) {
+			for (int j = 0; j < game->tiles_len; j++) {
+				if (v2_equal(game->tiles[j].position, search)) {
 					found = true;
 					break;
 				}
@@ -684,7 +685,7 @@ static int move_grasshopper(Vec2 from, Vec2 moves[MAX_MOVES])
 	return len_moves;
 }
 
-static int move_spider(Vec2 from, Vec2 moves[MAX_MOVES])
+static int move_spider(const Game *game, Vec2 from, Vec2 moves[MAX_MOVES])
 {
 	// do a bfs, stopping at path len = 3
 	int len_moves = 0;
@@ -719,7 +720,7 @@ static int move_spider(Vec2 from, Vec2 moves[MAX_MOVES])
 
 		int len_next_moves;
 		assert(queue_next + 4 <= MAX_MOVES);
-		move_once_around_hive(next, &len_next_moves, &queue[queue_next]);
+		move_once_around_hive(game, next, &len_next_moves, &queue[queue_next]);
 		static_assert(sizeof *depth_queue == 1, "memset is per-byte");
 		memset(&depth_queue[queue_next], depth + 1, len_next_moves * sizeof(uint8_t));
 		queue_next += len_next_moves;
@@ -730,14 +731,14 @@ static int move_spider(Vec2 from, Vec2 moves[MAX_MOVES])
 	return len_moves;
 }
 
-static int move_beetle(Vec2 from, Vec2 moves[MAX_MOVES])
+static int move_beetle(const Game *game, Vec2 from, Vec2 moves[MAX_MOVES])
 {
 	int len_moves = 0;
-	move_once_around_hive(from, &len_moves, moves);
+	move_once_around_hive(game, from, &len_moves, moves);
 	// the moves are guaranteed to be empty spaces
 	for (int i = 0; i < 6; i++) {
 		const Vec2 neighbour = { unit_dirs[i].q + from.q, unit_dirs[i].r + from.r };
-		if (top_of_stack(neighbour)) {
+		if (top_of_stack(game, neighbour)) {
 			moves[len_moves++] = neighbour;
 		}
 	}
@@ -747,24 +748,24 @@ static int move_beetle(Vec2 from, Vec2 moves[MAX_MOVES])
 	return len_moves;
 }
 
-static void move_ladybug_rec(int depth, Vec2 from, Vec2 exclude, Vec2 moves[MAX_MOVES], int *moves_len)
+static void move_ladybug_rec(const Game *game, int depth, Vec2 from, Vec2 exclude, Vec2 moves[MAX_MOVES], int *moves_len)
 {
 	assert(depth <= 3);
 	assert(depth > 0);
 
 	if (depth < 3) {
-		for (int i = 0; i < game.tiles_len; i++) {
-			if (v2_equal(game.tiles[i].position, exclude)) continue;
-			if (v2_adjacent(game.tiles[i].position, from)) {
-				move_ladybug_rec(depth + 1, game.tiles[i].position, exclude, moves, moves_len);
+		for (int i = 0; i < game->tiles_len; i++) {
+			if (v2_equal(game->tiles[i].position, exclude)) continue;
+			if (v2_adjacent(game->tiles[i].position, from)) {
+				move_ladybug_rec(game, depth + 1, game->tiles[i].position, exclude, moves, moves_len);
 			}
 		}
 	} else {
 		for (int i = 0; i < 6; i++) {
 			const Vec2 to_check = { unit_dirs[i].q + from.q, unit_dirs[i].r + from.r };
 			bool found = false;
-			for (int j = 0; j < game.tiles_len; j++) {
-				if (v2_equal(to_check, game.tiles[j].position)) {
+			for (int j = 0; j < game->tiles_len; j++) {
+				if (v2_equal(to_check, game->tiles[j].position)) {
 					found = true;
 					break;
 				}
@@ -787,10 +788,10 @@ static void move_ladybug_rec(int depth, Vec2 from, Vec2 exclude, Vec2 moves[MAX_
 	}
 }
 
-static int move_ladybug(Vec2 from, Vec2 moves[MAX_MOVES])
+static int move_ladybug(const Game *game, Vec2 from, Vec2 moves[MAX_MOVES])
 {
 	int moves_len = 0;
-	move_ladybug_rec(1, from, from, moves, &moves_len);
+	move_ladybug_rec(game, 1, from, from, moves, &moves_len);
 	return moves_len;
 }
 
@@ -812,13 +813,13 @@ static void append_unique(
 	}
 }
 
-static int move_mosquito(Vec2 from, Vec2 moves[MAX_MOVES])
+static int move_mosquito(const Game *game, Vec2 from, Vec2 moves[MAX_MOVES])
 {
 	// bits are the place in the enum of piece types
 	int to_mimic = 0;
 	for (int i = 0; i < 6; i++) {
 		const Vec2 neighbour = { unit_dirs[i].q + from.q, unit_dirs[i].r + from.r };
-		const Tile *top = top_of_stack(neighbour);
+		const Tile *top = top_of_stack(game, neighbour);
 		if (top) {
 			to_mimic |= 1 << top->piece_type;
 		}
@@ -827,27 +828,27 @@ static int move_mosquito(Vec2 from, Vec2 moves[MAX_MOVES])
 	int buffer_len;
 	int moves_len = 0;
 	if (to_mimic & (1 << PIECE_TYPE_QUEEN_BEE)) {
-		buffer_len = move_queen_bee(from, buffer);
+		buffer_len = move_queen_bee(game, from, buffer);
 		append_unique(buffer_len, buffer, &moves_len, moves);
 	}
 	if (to_mimic & (1 << PIECE_TYPE_SOLDIER_ANT)) {
-		buffer_len = move_soldier_ant(from, buffer);
+		buffer_len = move_soldier_ant(game, from, buffer);
 		append_unique(buffer_len, buffer, &moves_len, moves);
 	}
 	if (to_mimic & (1 << PIECE_TYPE_GRASSHOPPER)) {
-		buffer_len = move_grasshopper(from, buffer);
+		buffer_len = move_grasshopper(game, from, buffer);
 		append_unique(buffer_len, buffer, &moves_len, moves);
 	}
 	if (to_mimic & (1 << PIECE_TYPE_SPIDER)) {
-		buffer_len = move_spider(from, buffer);
+		buffer_len = move_spider(game, from, buffer);
 		append_unique(buffer_len, buffer, &moves_len, moves);
 	}
 	if (to_mimic & (1 << PIECE_TYPE_BEETLE)) {
-		buffer_len = move_beetle(from, buffer);
+		buffer_len = move_beetle(game, from, buffer);
 		append_unique(buffer_len, buffer, &moves_len, moves);
 	}
 	if (to_mimic & (1 << PIECE_TYPE_LADYBUG)) {
-		buffer_len = move_ladybug(from, buffer);
+		buffer_len = move_ladybug(game, from, buffer);
 		append_unique(buffer_len, buffer, &moves_len, moves);
 	}
 	return moves_len;
