@@ -1,7 +1,6 @@
 package main
 
 import (
-	"HiveServer/src/hivegame"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
 	"log"
@@ -91,7 +90,7 @@ func (h *HostedGamePlayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 	playerId := uint64(token.Claims.(jwt.MapClaims)["id"].(float64))
 
-	var playerColor hivegame.HiveColor
+	var playerColor HiveColor
 	var isReconnect = false
 
 	game.condition.L.Lock()
@@ -121,11 +120,11 @@ func (h *HostedGamePlayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		if rand.Intn(2) == 0 {
 			game.blackPlayer = playerId
 			game.blackConn = conn
-			playerColor = hivegame.ColorBlack
+			playerColor = ColorBlack
 		} else {
 			game.whitePlayer = playerId
 			game.whiteConn = conn
-			playerColor = hivegame.ColorWhite
+			playerColor = ColorWhite
 		}
 	} else if game.blackPlayer == 0 {
 		if game.whitePlayer == playerId {
@@ -136,7 +135,7 @@ func (h *HostedGamePlayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		// other player already joined as white
 		game.blackPlayer = playerId
 		game.blackConn = conn
-		playerColor = hivegame.ColorBlack
+		playerColor = ColorBlack
 		game.condition.Signal()
 		goto unlock
 	} else if game.whitePlayer == 0 {
@@ -148,7 +147,7 @@ func (h *HostedGamePlayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		// other player already joined as black
 		game.whitePlayer = playerId
 		game.whiteConn = conn
-		playerColor = hivegame.ColorWhite
+		playerColor = ColorWhite
 		game.condition.Signal()
 		goto unlock
 	}
@@ -208,9 +207,9 @@ unlock:
 				break
 			}
 
-			if over, _ := game.hiveGame.IsOver(); !over {
+			if over, _ := game.IsOver(); !over {
 				when := time.Now()
-				if playerColor == hivegame.ColorBlack {
+				if playerColor == ColorBlack {
 					game.blackConn = nil
 					game.blackLastDisconnected = &when
 				} else {
@@ -248,7 +247,7 @@ unlock:
 				if err != nil {
 					goto wsWriteError
 				}
-			} else if over, winner := game.hiveGame.IsOver(); over {
+			} else if over, winner := game.IsOver(); over {
 				err = conn.WriteJSON(PlayMessage{
 					Event: EventGameCompleted,
 					Complete: &GameComplete{
@@ -294,7 +293,7 @@ func (hg *HostedGame) WatchForDisconnect(onGameComplete func()) {
 		var whenDisconnected time.Time
 
 		hg.disconnectMutex.Lock()
-		if color == hivegame.ColorBlack {
+		if color == ColorBlack {
 			whenDisconnected = *hg.blackLastDisconnected
 		} else {
 			whenDisconnected = *hg.whiteLastDisconnected
@@ -312,7 +311,7 @@ func (hg *HostedGame) WatchForDisconnect(onGameComplete func()) {
 		<-time.After(toWait)
 		hg.disconnectMutex.Lock()
 		var lastDisconnected *time.Time
-		if color == hivegame.ColorBlack {
+		if color == ColorBlack {
 			lastDisconnected = hg.blackLastDisconnected
 		} else {
 			lastDisconnected = hg.whiteLastDisconnected
@@ -327,7 +326,7 @@ func (hg *HostedGame) WatchForDisconnect(onGameComplete func()) {
 		if reconnectFailed {
 			hg.condition.L.Lock()
 			var err error
-			if color == hivegame.ColorBlack && hg.whiteConn != nil {
+			if color == ColorBlack && hg.whiteConn != nil {
 				err = hg.whiteConn.WriteJSON(PlayMessage{
 					Event: EventGameCompleted,
 					Complete: &GameComplete{
@@ -337,7 +336,7 @@ func (hg *HostedGame) WatchForDisconnect(onGameComplete func()) {
 				hg.shutdown <- struct{}{}
 				_ = hg.whiteConn.Close()
 				onGameComplete()
-			} else if color == hivegame.ColorWhite && hg.blackConn != nil {
+			} else if color == ColorWhite && hg.blackConn != nil {
 				err = hg.blackConn.WriteJSON(PlayMessage{
 					Event: EventGameCompleted,
 					Complete: &GameComplete{

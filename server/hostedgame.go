@@ -19,17 +19,17 @@ type HostedGame struct {
 	whiteLastDisconnected *time.Time
 	blackLastDisconnected *time.Time
 	disconnectMutex       sync.Mutex
-	onDisconnect          chan hivegame.HiveColor
+	onDisconnect          chan HiveColor
 	shutdown              chan struct{}
-	hiveGame              hivegame.HiveGame
+	hiveGame              *HiveGame
 	condition             *sync.Cond
 }
 
 func NewHostedGame() *HostedGame {
 	return &HostedGame{
-		hiveGame:     hivegame.CreateHiveGame(),
+		hiveGame:     createHiveGame(),
 		condition:    sync.NewCond(&sync.Mutex{}),
-		onDisconnect: make(chan hivegame.HiveColor, 1),
+		onDisconnect: make(chan HiveColor, 1),
 		shutdown:     make(chan struct{}, 1),
 	}
 }
@@ -40,10 +40,15 @@ func (hg *HostedGame) RecordMove(move *HiveMove) bool {
 
 	switch move.MoveType {
 	case MoveTypeMovement:
-		success = hg.hiveGame.MoveTile(move.Movement.From, move.Movement.To)
+		success = hg.hiveGame.moveTile(move.Movement.From, move.Movement.To)
 	case MoveTypePlacement:
-		success = hg.hiveGame.PlaceTile(move.Placement.Position, move.Placement.PieceType)
+		success = hg.hiveGame.placeTile(move.Placement.Position, move.Placement.PieceType)
 	}
 
 	return success
 }
+
+func (hg *HostedGame) IsOver() (bool, HiveColor) {
+	return hg.hiveGame.isOver()
+}
+

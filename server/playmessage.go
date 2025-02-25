@@ -1,9 +1,5 @@
 package main
 
-import (
-	"HiveServer/src/hivegame"
-)
-
 const (
 	EventAuthenticate = "AUTHENTICATE"
 	EventConnect      = "CONNECT"
@@ -25,7 +21,7 @@ type PlayMessage struct {
 }
 
 type GameConnect struct {
-	Color hivegame.HiveColor `json:"color"`
+	Color int `json:"color"`
 }
 
 type GameComplete struct {
@@ -44,11 +40,11 @@ type HiveMove struct {
 }
 
 type HivePlacement struct {
-	PieceType hivegame.HivePieceType `json:"pieceType"`
-	Position  hivegame.HexVectorInt  `json:"position"`
+	PieceType int  `json:"pieceType"`
+	Position  Vec2 `json:"position"`
 }
 
 type HiveMovement struct {
-	From hivegame.HexVectorInt `json:"from"`
-	To   hivegame.HexVectorInt `json:"to"`
+	From Vec2 `json:"from"`
+	To   Vec2 `json:"to"`
 }

@@ -1,4 +1,4 @@
-package hivegame
+package main
 
 import (
 	"github.com/go-test/deep"

@@ -10,14 +10,14 @@ clean:
 	rm -rf build_wasm
 
 hive.wasm: hive.c c.c hive.h
-	clang --target=wasm32 -nostdlib -Wl,--no-entry -o $@ -Os -std=gnu11 -DHIVE_WASM $(filter %.c,$^)
+	clang --target=wasm32 -nostdlib -Wl,--no-entry -o $@ -Os -std=c11 -DHIVE_WASM $(filter %.c,$^)
 
 # TODO
 # hivetest.html: hive.c hive_test.c hive.h build_wasm/libunity.a
-# 	emcc -o hivetest.html -Lbuild_wasm -IUnity/src -Os -std=gnu11 -DHIVE_WASM $(filter %.c,$^) -lunity
+# 	emcc -o hivetest.html -Lbuild_wasm -IUnity/src -Os -std=c11 -DHIVE_WASM $(filter %.c,$^) -lunity
 
 hivetest: hive.c hive_test.c hive.h build/libunity.a
-	gcc -o $@ -Lbuild -IUnity/src -Wall -Wextra -Wpedantic -std=gnu11 -g $(filter %.c,$^) -lunity
+	gcc -o $@ -Lbuild -IUnity/src -Wall -Wextra -Wpedantic -std=c11 -g $(filter %.c,$^) -lunity
 
 build/libunity.a: | build
 	cmake --build build
