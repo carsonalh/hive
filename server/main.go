@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 )
 
 type ServerState struct {
@@ -60,7 +61,18 @@ func createServer() *http.Server {
 		w.Header().Set("Access-Control-Allow-Headers", "Authorization")
 	})
 
-	mux.Handle("/", http.FileServer(SpaFileServer(http.Dir("./static/"))))
+	serveDir := os.Getenv("SERVE")
+	if serveDir == "" {
+		panic("Must set environment SERVE")
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		panic("Get working directory")
+	}
+	serveDir = path.Clean(path.Join(wd, serveDir))
+	fmt.Println("Serving files from root", serveDir)
+
+	mux.Handle("/", http.FileServer(SpaFileServer(http.Dir(serveDir))))
 
 	server := &http.Server{
 		Addr:    ":" + port,

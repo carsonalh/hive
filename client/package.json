@@ -1,5 +1,15 @@
 {
+  "name": "hive-client",
+  "description": "Frontend for hivegame.io",
+  "scripts": {
+    "build": "gulp"
+  },
   "devDependencies": {
-    "express": "^4.21.2"
+    "@swc/core": "^1.11.1",
+    "chokidar-cli": "^3.0.0",
+    "gulp": "^5.0.0",
+    "gulp-copy": "^5.0.0",
+    "gulp-shell": "^0.8.0",
+    "swc": "^1.0.11"
   }
 }
