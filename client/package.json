@@ -2,7 +2,8 @@
   "name": "hive-client",
   "description": "Frontend for hivegame.io",
   "scripts": {
-    "build": "gulp"
+    "build": "gulp",
+    "watch": "chokidar 'src/**/*.ts' -c 'npx spack'"
   },
   "devDependencies": {
     "@swc/core": "^1.11.1",

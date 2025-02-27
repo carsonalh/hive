@@ -8,6 +8,7 @@ class AssertionFailedError extends Error {
 
 export function assert(condition: boolean, message?: string): asserts condition {
     if (!condition) {
+        debugger
         throw new AssertionFailedError(message);
     }
 }
