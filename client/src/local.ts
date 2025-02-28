@@ -14,9 +14,13 @@ interface Scene {
         projection: WebGLUniformLocation
         view: WebGLUniformLocation
         model: WebGLUniformLocation
-        texture: WebGLUniformLocation 
+        texture: WebGLUniformLocation
+        normalMap: WebGLUniformLocation
+        sunDirection: WebGLUniformLocation
+        sunIntensity: WebGLUniformLocation
+        cameraDirection: WebGLUniformLocation
     }
-    indices: WebGLBuffer 
+    indices: WebGLBuffer
     indicesLength: number
 }
 
@@ -75,16 +79,16 @@ export function setupLocalGameplay() {
 
             gl.useProgram(program)
 
-            // const theta = msSinceBegin / 1000
+            const theta = msSinceBegin / 1000
             gl.uniformMatrix4fv(modelUniform, true, new Float32Array([
-                // Math.cos(theta), 0, Math.sin(theta), 0,
-                // 0, 1, 0, 0,
-                // -Math.sin(theta), 0, Math.cos(theta), 0,
-                // 0, 0, 0, 1,
-                1, 0, 0, 0,
+                Math.cos(theta), 0, Math.sin(theta), 0,
                 0, 1, 0, 0,
-                0, 0, 1, 0,
+                -Math.sin(theta), 0, Math.cos(theta), 0,
                 0, 0, 0, 1,
+                // 1, 0, 0, 0,
+                // 0, 1, 0, 0,
+                // 0, 0, 1, 0,
+                // 0, 0, 0, 1,
             ]))
             const cameraMatrix = new Float32Array([
                 1, 0, 0, 0,
@@ -98,6 +102,10 @@ export function setupLocalGameplay() {
 
             gl.bindVertexArray(vao)
             gl.uniform1i(scene.uniform.texture, 0)
+            gl.uniform1i(scene.uniform.normalMap, 1)
+            gl.uniform3fv(scene.uniform.sunDirection, new Float32Array([1 / Math.sqrt(3), -1 / Math.sqrt(3), 1 / Math.sqrt(3)]))
+            gl.uniform1f(scene.uniform.sunIntensity, 1)
+            gl.uniform3fv(scene.uniform.cameraDirection, new Float32Array([0, 1, 0]))
             gl.drawElementsInstanced(gl.TRIANGLES, indicesLength, gl.UNSIGNED_SHORT, 0, 3)
             // gl.drawElements(gl.TRIANGLES, tileIndicesLength, gl.UNSIGNED_SHORT, 0)
         }
@@ -201,15 +209,28 @@ async function loadScene(): Promise<void> {
         })
 
     const texture = gl.createTexture()
+    const normalMap = gl.createTexture()
     const loadImage = new Promise(resolve => {
         const image = new Image(1024, 1024)
         image.src = '/res/queenbee.svg'
         image.addEventListener('load', () => {
-        assert(gl != null)
+            assert(gl != null)
             gl.activeTexture(gl.TEXTURE0)
             gl.bindTexture(gl.TEXTURE_2D, texture)
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1024, 1024, 0, gl.RGBA, gl.UNSIGNED_BYTE, image)
-        gl.generateMipmap(gl.TEXTURE_2D)
+            gl.generateMipmap(gl.TEXTURE_2D)
+            resolve(image)
+        })
+    })
+    const loadNormalMap = new Promise(resolve => {
+        const image = new Image(512, 512)
+        image.src = '/res/queenbee_normal.jpg'
+        image.addEventListener('load', () => {
+            assert(gl != null)
+            gl.activeTexture(gl.TEXTURE0 + 1)
+            gl.bindTexture(gl.TEXTURE_2D, normalMap)
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 512, 512, 0, gl.RGBA, gl.UNSIGNED_BYTE, image)
+            gl.generateMipmap(gl.TEXTURE_2D)
             resolve(image)
         })
     })
@@ -218,13 +239,21 @@ async function loadScene(): Promise<void> {
     const viewLocation = gl.getUniformLocation(program, 'u_view')
     const modelLocation = gl.getUniformLocation(program, 'u_model')
     const textureLocation = gl.getUniformLocation(program, 'u_texture')
+    const normalMapLocation = gl.getUniformLocation(program, 'u_normalMap')
+    const sunDirectionLocation = gl.getUniformLocation(program, 'u_sunDirection')
+    const sunIntensityLocation = gl.getUniformLocation(program, 'u_sunIntensity')
+    const cameraDirectionLocation = gl.getUniformLocation(program, 'u_cameraDirection')
 
-    await Promise.all([loadImage, fetchTile])
+    await Promise.all([loadImage, loadNormalMap, fetchTile])
 
     assert(projectionLocation != null)
     assert(viewLocation != null)
     assert(modelLocation != null)
     assert(textureLocation != null)
+    assert(normalMapLocation != null)
+    assert(sunDirectionLocation != null)
+    assert(sunIntensityLocation != null)
+    assert(cameraDirectionLocation != null)
 
     assert(positionBuffer != null)
     assert(texCoordBuffer != null)
@@ -250,6 +279,10 @@ async function loadScene(): Promise<void> {
             view: viewLocation,
             model: modelLocation,
             texture: textureLocation,
+            normalMap: normalMapLocation,
+            sunDirection: sunDirectionLocation,
+            sunIntensity: sunIntensityLocation,
+            cameraDirection: cameraDirectionLocation,
         },
         indices: indexBuffer,
         indicesLength: tileIndicesLength,
@@ -280,19 +313,20 @@ function createProgram(): WebGLProgram {
 
     void main()
     {
-        v_position = a_position;
+        v_position = (u_model * vec4(a_position, 1.0)).xyz + a_offset;
         v_texCoord = a_texCoord;
-        v_normal = a_normal;
-        v_tangent = a_tangent;
+        v_normal = normalize(mat3(u_model) * a_normal);
+        v_tangent = normalize(mat3(u_model) * a_tangent);
         vec4 pre_offset = u_model * vec4(a_position, 1.0);
         vec4 post_offset = vec4(a_offset, 0.0) + pre_offset;
         gl_Position = u_projection * u_view * post_offset;
     }
     `)
     gl.compileShader(vertexShader)
-    if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
-        console.error(`Error compiling vertex shader:\n${gl.getShaderInfoLog(vertexShader)}`)
-    }
+    assert(
+        gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS),
+        `Error compiling vertex shader:\n${gl.getShaderInfoLog(vertexShader)}`
+    )
 
     const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER)
     assert(fragmentShader != null)
@@ -306,13 +340,28 @@ function createProgram(): WebGLProgram {
     out highp vec4 f_color;
 
     uniform sampler2D u_texture;
+    uniform sampler2D u_normalMap;
+    uniform highp vec3 u_sunDirection;
+    uniform highp float u_sunIntensity;
+    uniform highp vec3 u_cameraDirection;
 
     void main()
     {
         // someone thought it was a good idea to always need to use your
         // uniforms
-        vec4 ignored = texture(u_texture, v_texCoord);
-        f_color = vec4(v_tangent, 1.0) + ignored * 0.0000001;
+        vec4 ignored = texture(u_texture, v_texCoord) + texture(u_normalMap, v_texCoord) + vec4(u_sunDirection + u_cameraDirection, u_sunIntensity);
+        f_color = ignored * 0.0000001;
+
+        vec3 n = normalize(v_normal);
+        vec3 t = normalize(v_tangent - dot(v_tangent, v_normal) * v_normal);
+        vec3 b = cross(n, t);
+        mat3 tbn = mat3(t, b, n);
+        vec3 new_normal = tbn * normalize(vec3(2.0 * texture(u_normalMap, v_texCoord) - 1.0) + vec3(0.0, 0.0, 0.5));
+
+        vec3 reflection = reflect(u_sunDirection, new_normal);
+        float specular = dot(reflection, u_cameraDirection);
+        specular = specular * (sign(specular) + 1.0) / 2.0;
+        f_color += vec4(vec3(specular * specular * specular * specular), 1.0);
     }
     `)
     gl.compileShader(fragmentShader)
@@ -500,7 +549,7 @@ function calculateTangents(positions: Float32Array, normals: Float32Array, textu
         const t = out.slice(0, 3)
 
         for (let j = 0; j < 3; j++) {
-            if (i + j in tangents) {
+            if (tangents.has(indices[i + j])) {
                 tangents.get(indices[i + j])!.push(t)
             } else {
                 tangents.set(indices[i + j], [t])
