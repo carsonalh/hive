@@ -9,6 +9,8 @@ interface Scene {
         normal: WebGLBuffer
         tangent: WebGLBuffer
         offset: WebGLBuffer
+        foregroundColor: WebGLBuffer
+        backgroundColor: WebGLBuffer
     }
     uniform: {
         projection: WebGLUniformLocation
@@ -17,8 +19,8 @@ interface Scene {
         texture: WebGLUniformLocation
         normalMap: WebGLUniformLocation
         sunDirection: WebGLUniformLocation
-        sunIntensity: WebGLUniformLocation
         cameraDirection: WebGLUniformLocation
+        ambientLight: WebGLUniformLocation
     }
     indices: WebGLBuffer
     indicesLength: number
@@ -104,10 +106,9 @@ export function setupLocalGameplay() {
             gl.uniform1i(scene.uniform.texture, 0)
             gl.uniform1i(scene.uniform.normalMap, 1)
             gl.uniform3fv(scene.uniform.sunDirection, new Float32Array([1 / Math.sqrt(3), -1 / Math.sqrt(3), 1 / Math.sqrt(3)]))
-            gl.uniform1f(scene.uniform.sunIntensity, 1)
+            gl.uniform1f(scene.uniform.ambientLight, 0.25)
             gl.uniform3fv(scene.uniform.cameraDirection, new Float32Array([0, 1, 0]))
             gl.drawElementsInstanced(gl.TRIANGLES, indicesLength, gl.UNSIGNED_SHORT, 0, 3)
-            // gl.drawElements(gl.TRIANGLES, tileIndicesLength, gl.UNSIGNED_SHORT, 0)
         }
 
         nextFrame = window.requestAnimationFrame(animate)
@@ -131,17 +132,23 @@ async function loadScene(): Promise<void> {
     const normalLocation = gl.getAttribLocation(program, 'a_normal')
     const tangentLocation = gl.getAttribLocation(program, 'a_tangent')
     const offsetLocation = gl.getAttribLocation(program, 'a_offset')
+    const backgroundColorLocation = gl.getAttribLocation(program, 'a_backgroundColor')
+    const foregroundColorLocation = gl.getAttribLocation(program, 'a_foregroundColor')
 
     assert(positionLocation != null)
     assert(texCoordLocation != null)
     assert(normalLocation != null)
     assert(offsetLocation != null)
+    assert(backgroundColorLocation != null)
+    assert(foregroundColorLocation != null)
 
     let positionBuffer: WebGLBuffer | null = null
     let texCoordBuffer: WebGLBuffer | null = null
     let normalBuffer: WebGLBuffer | null = null
     let tangentBuffer: WebGLBuffer | null = null
     let offsetBuffer: WebGLBuffer | null = null
+    let backgroundColorBuffer: WebGLBuffer | null = null
+    let foregroundColorBuffer: WebGLBuffer | null = null
 
     let indexBuffer: WebGLBuffer | null = null
 
@@ -204,6 +211,28 @@ async function loadScene(): Promise<void> {
             gl.vertexAttribDivisor(offsetLocation, 1)
             coordBuffer = offsetBuffer
 
+            backgroundColorBuffer = gl.createBuffer()
+            gl.bindBuffer(gl.ARRAY_BUFFER, backgroundColorBuffer)
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+                1, 1, 1,
+                0, 1, 0,
+                0, 0, 1,
+            ]), gl.STATIC_DRAW)
+            gl.enableVertexAttribArray(backgroundColorLocation)
+            gl.vertexAttribPointer(backgroundColorLocation, 3, gl.FLOAT, false, 0, 0)
+            gl.vertexAttribDivisor(backgroundColorLocation, 1)
+
+            foregroundColorBuffer = gl.createBuffer()
+            gl.bindBuffer(gl.ARRAY_BUFFER, foregroundColorBuffer)
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+                0, 0, 0,
+                1, 0, 1,
+                0, 1, 1,
+            ]), gl.STATIC_DRAW)
+            gl.enableVertexAttribArray(foregroundColorLocation)
+            gl.vertexAttribPointer(foregroundColorLocation, 3, gl.FLOAT, false, 0, 0)
+            gl.vertexAttribDivisor(foregroundColorLocation, 1)
+
             tileIndicesLength = indicesArray.length
             tileVao = vertexArray
         })
@@ -241,8 +270,8 @@ async function loadScene(): Promise<void> {
     const textureLocation = gl.getUniformLocation(program, 'u_texture')
     const normalMapLocation = gl.getUniformLocation(program, 'u_normalMap')
     const sunDirectionLocation = gl.getUniformLocation(program, 'u_sunDirection')
-    const sunIntensityLocation = gl.getUniformLocation(program, 'u_sunIntensity')
     const cameraDirectionLocation = gl.getUniformLocation(program, 'u_cameraDirection')
+    const ambientLightLocation = gl.getUniformLocation(program, 'u_ambientLight')
 
     await Promise.all([loadImage, loadNormalMap, fetchTile])
 
@@ -252,8 +281,8 @@ async function loadScene(): Promise<void> {
     assert(textureLocation != null)
     assert(normalMapLocation != null)
     assert(sunDirectionLocation != null)
-    assert(sunIntensityLocation != null)
     assert(cameraDirectionLocation != null)
+    assert(ambientLightLocation != null)
 
     assert(positionBuffer != null)
     assert(texCoordBuffer != null)
@@ -261,6 +290,8 @@ async function loadScene(): Promise<void> {
     assert(tangentBuffer != null)
     assert(offsetBuffer != null)
     assert(indexBuffer != null)
+    assert(foregroundColorBuffer != null)
+    assert(backgroundColorBuffer != null)
 
     assert(tileVao != null)
 
@@ -273,6 +304,8 @@ async function loadScene(): Promise<void> {
             normal: normalBuffer,
             tangent: tangentBuffer,
             offset: offsetBuffer,
+            foregroundColor: foregroundColorBuffer,
+            backgroundColor: backgroundColorBuffer,
         },
         uniform: {
             projection: projectionLocation,
@@ -281,8 +314,8 @@ async function loadScene(): Promise<void> {
             texture: textureLocation,
             normalMap: normalMapLocation,
             sunDirection: sunDirectionLocation,
-            sunIntensity: sunIntensityLocation,
             cameraDirection: cameraDirectionLocation,
+            ambientLight: ambientLightLocation,
         },
         indices: indexBuffer,
         indicesLength: tileIndicesLength,
@@ -301,11 +334,15 @@ function createProgram(): WebGLProgram {
     in vec3 a_normal;
     in vec3 a_tangent;
     in vec3 a_offset;
+    in vec3 a_backgroundColor;
+    in vec3 a_foregroundColor;
 
     out vec3 v_position;
     out vec2 v_texCoord;
     out vec3 v_normal;
     out vec3 v_tangent;
+    out vec3 v_backgroundColor;
+    out vec3 v_foregroundColor;
 
     uniform mat4 u_projection;
     uniform mat4 u_view;
@@ -317,6 +354,8 @@ function createProgram(): WebGLProgram {
         v_texCoord = a_texCoord;
         v_normal = normalize(mat3(u_model) * a_normal);
         v_tangent = normalize(mat3(u_model) * a_tangent);
+        v_backgroundColor = a_backgroundColor;
+        v_foregroundColor = a_foregroundColor;
         vec4 pre_offset = u_model * vec4(a_position, 1.0);
         vec4 post_offset = vec4(a_offset, 0.0) + pre_offset;
         gl_Position = u_projection * u_view * post_offset;
@@ -336,22 +375,21 @@ function createProgram(): WebGLProgram {
     in highp vec2 v_texCoord;
     in highp vec3 v_normal;
     in highp vec3 v_tangent;
+    in highp vec3 v_backgroundColor;
+    in highp vec3 v_foregroundColor;
 
     out highp vec4 f_color;
 
     uniform sampler2D u_texture;
     uniform sampler2D u_normalMap;
     uniform highp vec3 u_sunDirection;
-    uniform highp float u_sunIntensity;
     uniform highp vec3 u_cameraDirection;
+    uniform highp float u_ambientLight;
 
     void main()
     {
         // someone thought it was a good idea to always need to use your
         // uniforms
-        vec4 ignored = texture(u_texture, v_texCoord) + texture(u_normalMap, v_texCoord) + vec4(u_sunDirection + u_cameraDirection, u_sunIntensity);
-        f_color = ignored * 0.0000001;
-
         vec3 n = normalize(v_normal);
         vec3 t = normalize(v_tangent - dot(v_tangent, v_normal) * v_normal);
         vec3 b = cross(n, t);
@@ -360,8 +398,14 @@ function createProgram(): WebGLProgram {
 
         vec3 reflection = reflect(u_sunDirection, new_normal);
         float specular = dot(reflection, u_cameraDirection);
+        // make it zero or positive
         specular = specular * (sign(specular) + 1.0) / 2.0;
-        f_color += vec4(vec3(specular * specular * specular * specular), 1.0);
+        specular = pow(specular, 12.0);
+        float diffuse = dot(-u_sunDirection, new_normal);
+        diffuse = max(diffuse, u_ambientLight);
+        float color_indicator = texture(u_texture, v_texCoord).r;
+        vec3 base_color = color_indicator * v_foregroundColor + (1.0 - color_indicator) * v_backgroundColor;
+        f_color = vec4(base_color * diffuse + vec3(specular), 1.0);
     }
     `)
     gl.compileShader(fragmentShader)
