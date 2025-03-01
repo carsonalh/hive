@@ -41,7 +41,7 @@ function setupDom() {
 
 		let viewFn = () => () => {}
 		if (path in viewFns) {
-			viewFn = viewFns[path]
+			viewFn = viewFns[path as keyof typeof viewFns]
 		}
 
 		if (html.matches('template')) {

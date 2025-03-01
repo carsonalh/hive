@@ -97,7 +97,7 @@ export function legalPlacements(tileIndex: number) {
 
     const tilePtr = TILES_BEGIN_OFFSET + SIZEOF_TILE * tileIndex
     const outputBufferPtr = SCRATCH_BUFFER_LOCATION
-    const placementsLen = module.instance.exports.legal_placements(tilePtr, outputBufferPtr)
+    const placementsLen = (module.instance.exports.legal_placements as any)(tilePtr, outputBufferPtr)
 
     const view = new DataView(memory.buffer, gamePtr, SIZEOF_GAME)
     const placements: { q: number, r: number }[] = []
@@ -115,7 +115,7 @@ export function legalMovements(tileIndex: number) {
 
     const tilePtr = TILES_BEGIN_OFFSET + SIZEOF_TILE * tileIndex
     const outputBufferPtr = SCRATCH_BUFFER_LOCATION
-    const movementsLen = module.instance.exports.legal_placements(tilePtr, outputBufferPtr)
+    const movementsLen = (module.instance.exports.legal_movements as any)(tilePtr, outputBufferPtr)
 
     const view = new DataView(memory.buffer, gamePtr, SIZEOF_GAME)
     const movements: { q: number, r: number }[] = []
@@ -128,7 +128,7 @@ export function legalMovements(tileIndex: number) {
     return movements
 }
 
-export const initGame = () => { gamePtr = module.instance.exports.init_game() }
+export const initGame = () => { gamePtr = (module.instance.exports.init_game as any)() }
 export const placeTile = module.instance.exports.place_tile
 export const moveTile = module.instance.exports.move_tile
 export const completionState = module.instance.exports.completion_state

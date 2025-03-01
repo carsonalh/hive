@@ -2,8 +2,6 @@ const gulp = require('gulp');
 const shell = require('gulp-shell');
 const copy = require('gulp-copy');
 
-gulp.task('spack', shell.task('npx spack'));
-
 gulp.task('copy-images', () => {
     return gulp.src([
         'res/queenbee_normal.jpg',
@@ -34,5 +32,5 @@ gulp.task('copy-static-files', () => {
         .pipe(gulp.dest('dist'));
 });
 
-gulp.task('default', gulp.series('spack', 'copy-images', 'copy-static-files'));
+gulp.task('default', gulp.series('copy-images', 'copy-static-files'));
 

@@ -237,32 +237,59 @@ async function loadScene(): Promise<void> {
             tileVao = vertexArray
         })
 
-    const texture = gl.createTexture()
-    const normalMap = gl.createTexture()
-    const loadImage = new Promise(resolve => {
+    const queenBeeTexture = gl.createTexture()
+    const soldierAntTexture = gl.createTexture()
+    const grasshopperTexture = gl.createTexture()
+    const spiderTexture = gl.createTexture()
+    const beetleTexture = gl.createTexture()
+    const ladybugTexture = gl.createTexture()
+    const mosquitoTexture = gl.createTexture()
+    const loadImage = (path: string, texture: WebGLTexture, slot: number) => new Promise(resolve => {
         const image = new Image(1024, 1024)
-        image.src = '/res/queenbee.svg'
+        image.src = path
         image.addEventListener('load', () => {
             assert(gl != null)
-            gl.activeTexture(gl.TEXTURE0)
+            gl.activeTexture(gl.TEXTURE0 + slot)
             gl.bindTexture(gl.TEXTURE_2D, texture)
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1024, 1024, 0, gl.RGBA, gl.UNSIGNED_BYTE, image)
             gl.generateMipmap(gl.TEXTURE_2D)
-            resolve(image)
+            resolve(null)
         })
     })
-    const loadNormalMap = new Promise(resolve => {
+    const loadQueenBeeImage = loadImage('/res/queenbee.svg', queenBeeTexture, 0)
+    const loadSoldierAntImage = loadImage('/res/soldierant.svg', soldierAntTexture, 1)
+    const loadGrasshopperImage = loadImage('/res/grasshopper.svg', grasshopperTexture, 2)
+    const loadSpiderImage = loadImage('/res/spider.svg', spiderTexture, 3)
+    const loadBeetleImage = loadImage('/res/beetle.svg', beetleTexture, 4)
+    const loadLadybugImage = loadImage('/res/ladybug.svg', ladybugTexture, 5)
+    const loadMosquitoImage = loadImage('/res/mosquito.svg', mosquitoTexture, 6)
+
+    const queenBeeNormalMap = gl.createTexture()
+    const soldierAntNormalMap = gl.createTexture()
+    const grasshopperNormalMap = gl.createTexture()
+    const spiderNormalMap = gl.createTexture()
+    const beetleNormalMap = gl.createTexture()
+    const ladybugNormalMap = gl.createTexture()
+    const mosquitoNormalMap = gl.createTexture()
+    const loadNormalMap = (path: string, texture: WebGLTexture, slot: number) => new Promise(resolve => {
         const image = new Image(512, 512)
-        image.src = '/res/queenbee_normal.jpg'
+        image.src = path
         image.addEventListener('load', () => {
             assert(gl != null)
-            gl.activeTexture(gl.TEXTURE0 + 1)
-            gl.bindTexture(gl.TEXTURE_2D, normalMap)
+            gl.activeTexture(gl.TEXTURE0 + slot)
+            gl.bindTexture(gl.TEXTURE_2D, texture)
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 512, 512, 0, gl.RGBA, gl.UNSIGNED_BYTE, image)
             gl.generateMipmap(gl.TEXTURE_2D)
             resolve(image)
         })
     })
+    const loadQueenBeeNormalMap = loadNormalMap('/res/queenbee_normal.jpg', queenBeeNormalMap, 7)
+    const loadSoldierAntNormalMap = loadNormalMap('/res/soldierant_normal.jpg', soldierAntNormalMap, 8)
+    const loadGrasshopperNormalMap = loadNormalMap('/res/grasshopper_normal.jpg', grasshopperNormalMap, 9)
+    const loadSpiderNormalMap = loadNormalMap('/res/spider_normal.jpg', spiderNormalMap, 10)
+    const loadBeetleNormalMap = loadNormalMap('/res/beetle_normal.jpg', beetleNormalMap, 11)
+    const loadLadybugNormalMap = loadNormalMap('/res/ladybug_normal.jpg', ladybugNormalMap, 12)
+    const loadMosquitoNormalMap = loadNormalMap('/res/mosquito_normal.jpg', mosquitoNormalMap, 13)
 
     const projectionLocation = gl.getUniformLocation(program, 'u_projection')
     const viewLocation = gl.getUniformLocation(program, 'u_view')
@@ -273,8 +300,6 @@ async function loadScene(): Promise<void> {
     const cameraDirectionLocation = gl.getUniformLocation(program, 'u_cameraDirection')
     const ambientLightLocation = gl.getUniformLocation(program, 'u_ambientLight')
 
-    await Promise.all([loadImage, loadNormalMap, fetchTile])
-
     assert(projectionLocation != null)
     assert(viewLocation != null)
     assert(modelLocation != null)
@@ -283,6 +308,24 @@ async function loadScene(): Promise<void> {
     assert(sunDirectionLocation != null)
     assert(cameraDirectionLocation != null)
     assert(ambientLightLocation != null)
+
+    await Promise.all([
+        loadQueenBeeImage,
+        loadSoldierAntImage,
+        loadGrasshopperImage,
+        loadSpiderImage,
+        loadBeetleImage,
+        loadLadybugImage,
+        loadMosquitoImage,
+        loadQueenBeeNormalMap,
+        loadSoldierAntNormalMap,
+        loadGrasshopperNormalMap,
+        loadSpiderNormalMap,
+        loadBeetleNormalMap,
+        loadLadybugNormalMap,
+        loadMosquitoNormalMap,
+        fetchTile,
+    ])
 
     assert(positionBuffer != null)
     assert(texCoordBuffer != null)
@@ -640,7 +683,7 @@ function calculateTangents(positions: Float32Array, normals: Float32Array, textu
 const TILE_INNER_RADIUS = 0.8
 const TILE_PLACEMENT_GAP = 0.25
 
-function axialToCartesian({ q, r }) {
+function axialToCartesian({ q, r }: { q: number, r: number }) {
     assert(Number.isInteger(q))
     assert(Number.isInteger(r))
 

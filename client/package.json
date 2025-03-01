@@ -2,15 +2,17 @@
   "name": "hive-client",
   "description": "Frontend for hivegame.io",
   "scripts": {
-    "build": "gulp",
-    "watch": "chokidar 'src/**/*.ts' -c 'npx spack'"
+    "build": "gulp && node build.js",
+    "watch": "gulp && node build.js --watch"
   },
   "devDependencies": {
     "@swc/core": "^1.11.1",
     "chokidar-cli": "^3.0.0",
+    "esbuild": "^0.25.0",
     "gulp": "^5.0.0",
     "gulp-copy": "^5.0.0",
     "gulp-shell": "^0.8.0",
-    "swc": "^1.0.11"
+    "swc": "^1.0.11",
+    "typescript": "^5.8.2"
   }
 }
