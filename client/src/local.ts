@@ -103,8 +103,8 @@ export function setupLocalGameplay() {
             gl.uniformMatrix4fv(projectionUniform, true, perspectiveMatrix(75 * Math.PI / 180, gl.canvas.width / gl.canvas.height, 0.1, 100))
 
             gl.bindVertexArray(vao)
-            gl.uniform1i(scene.uniform.texture, 0)
-            gl.uniform1i(scene.uniform.normalMap, 1)
+            gl.uniform1iv(scene.uniform.texture, new Int32Array([0, 1, 2, 3, 4, 5, 6]))
+            gl.uniform1iv(scene.uniform.normalMap, new Int32Array([7, 8, 9, 10, 11, 12, 13]))
             gl.uniform3fv(scene.uniform.sunDirection, new Float32Array([1 / Math.sqrt(3), -1 / Math.sqrt(3), 1 / Math.sqrt(3)]))
             gl.uniform1f(scene.uniform.ambientLight, 0.25)
             gl.uniform3fv(scene.uniform.cameraDirection, new Float32Array([0, 1, 0]))
@@ -132,21 +132,24 @@ async function loadScene(): Promise<void> {
     const normalLocation = gl.getAttribLocation(program, 'a_normal')
     const tangentLocation = gl.getAttribLocation(program, 'a_tangent')
     const offsetLocation = gl.getAttribLocation(program, 'a_offset')
+    const pieceTypeLocation = gl.getAttribLocation(program, 'a_pieceType')
     const backgroundColorLocation = gl.getAttribLocation(program, 'a_backgroundColor')
     const foregroundColorLocation = gl.getAttribLocation(program, 'a_foregroundColor')
 
-    assert(positionLocation != null)
-    assert(texCoordLocation != null)
-    assert(normalLocation != null)
-    assert(offsetLocation != null)
-    assert(backgroundColorLocation != null)
-    assert(foregroundColorLocation != null)
+    assert(positionLocation !== -1)
+    assert(texCoordLocation !== -1)
+    assert(normalLocation !== -1)
+    assert(offsetLocation !== -1)
+    assert(pieceTypeLocation !== -1)
+    assert(backgroundColorLocation !== -1)
+    assert(foregroundColorLocation !== -1)
 
     let positionBuffer: WebGLBuffer | null = null
     let texCoordBuffer: WebGLBuffer | null = null
     let normalBuffer: WebGLBuffer | null = null
     let tangentBuffer: WebGLBuffer | null = null
     let offsetBuffer: WebGLBuffer | null = null
+    let pieceTypeBuffer: WebGLBuffer | null = null
     let backgroundColorBuffer: WebGLBuffer | null = null
     let foregroundColorBuffer: WebGLBuffer | null = null
 
@@ -210,6 +213,13 @@ async function loadScene(): Promise<void> {
             gl.vertexAttribPointer(offsetLocation, 3, gl.FLOAT, false, 0, 0)
             gl.vertexAttribDivisor(offsetLocation, 1)
             coordBuffer = offsetBuffer
+
+            pieceTypeBuffer = gl.createBuffer()
+            gl.bindBuffer(gl.ARRAY_BUFFER, pieceTypeBuffer)
+            gl.bufferData(gl.ARRAY_BUFFER, new Uint32Array([0, 1, 2]), gl.STATIC_DRAW)
+            gl.enableVertexAttribArray(pieceTypeLocation)
+            gl.vertexAttribIPointer(pieceTypeLocation, 1, gl.UNSIGNED_INT, 0, 0)
+            gl.vertexAttribDivisor(pieceTypeLocation, 1)
 
             backgroundColorBuffer = gl.createBuffer()
             gl.bindBuffer(gl.ARRAY_BUFFER, backgroundColorBuffer)
@@ -372,38 +382,41 @@ function createProgram(): WebGLProgram {
     const vertexShader = gl.createShader(gl.VERTEX_SHADER)
     assert(vertexShader != null)
     gl.shaderSource(vertexShader, `#version 300 es
-    in vec3 a_position;
-    in vec2 a_texCoord;
-    in vec3 a_normal;
-    in vec3 a_tangent;
-    in vec3 a_offset;
-    in vec3 a_backgroundColor;
-    in vec3 a_foregroundColor;
+in vec3 a_position;
+in vec2 a_texCoord;
+in vec3 a_normal;
+in vec3 a_tangent;
+in vec3 a_offset;
+in uint a_pieceType;
+in vec3 a_backgroundColor;
+in vec3 a_foregroundColor;
 
-    out vec3 v_position;
-    out vec2 v_texCoord;
-    out vec3 v_normal;
-    out vec3 v_tangent;
-    out vec3 v_backgroundColor;
-    out vec3 v_foregroundColor;
+out vec3 v_position;
+out vec2 v_texCoord;
+out vec3 v_normal;
+out vec3 v_tangent;
+flat out uint v_pieceType;
+out vec3 v_backgroundColor;
+out vec3 v_foregroundColor;
 
-    uniform mat4 u_projection;
-    uniform mat4 u_view;
-    uniform mat4 u_model;
+uniform mat4 u_projection;
+uniform mat4 u_view;
+uniform mat4 u_model;
 
-    void main()
-    {
-        v_position = (u_model * vec4(a_position, 1.0)).xyz + a_offset;
-        v_texCoord = a_texCoord;
-        v_normal = normalize(mat3(u_model) * a_normal);
-        v_tangent = normalize(mat3(u_model) * a_tangent);
-        v_backgroundColor = a_backgroundColor;
-        v_foregroundColor = a_foregroundColor;
-        vec4 pre_offset = u_model * vec4(a_position, 1.0);
-        vec4 post_offset = vec4(a_offset, 0.0) + pre_offset;
-        gl_Position = u_projection * u_view * post_offset;
-    }
-    `)
+void main()
+{
+    v_position = (u_model * vec4(a_position, 1.0)).xyz + a_offset;
+    v_texCoord = a_texCoord;
+    v_normal = normalize(mat3(u_model) * a_normal);
+    v_tangent = normalize(mat3(u_model) * a_tangent);
+    v_pieceType = a_pieceType;
+    v_backgroundColor = a_backgroundColor;
+    v_foregroundColor = a_foregroundColor;
+    vec4 pre_offset = u_model * vec4(a_position, 1.0);
+    vec4 post_offset = vec4(a_offset, 0.0) + pre_offset;
+    gl_Position = u_projection * u_view * post_offset;
+}
+`)
     gl.compileShader(vertexShader)
     assert(
         gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS),
@@ -413,44 +426,62 @@ function createProgram(): WebGLProgram {
     const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER)
     assert(fragmentShader != null)
     gl.shaderSource(fragmentShader, `#version 300 es
-    precision highp float;
-    in highp vec3 v_position;
-    in highp vec2 v_texCoord;
-    in highp vec3 v_normal;
-    in highp vec3 v_tangent;
-    in highp vec3 v_backgroundColor;
-    in highp vec3 v_foregroundColor;
+precision highp float;
+in highp vec3 v_position;
+in highp vec2 v_texCoord;
+in highp vec3 v_normal;
+in highp vec3 v_tangent;
+flat in uint v_pieceType;
+in highp vec3 v_backgroundColor;
+in highp vec3 v_foregroundColor;
 
-    out highp vec4 f_color;
+out highp vec4 f_color;
 
-    uniform sampler2D u_texture;
-    uniform sampler2D u_normalMap;
-    uniform highp vec3 u_sunDirection;
-    uniform highp vec3 u_cameraDirection;
-    uniform highp float u_ambientLight;
+uniform sampler2D u_texture[7];
+uniform sampler2D u_normalMap[7];
+uniform highp vec3 u_sunDirection;
+uniform highp vec3 u_cameraDirection;
+uniform highp float u_ambientLight;
 
-    void main()
-    {
-        // someone thought it was a good idea to always need to use your
-        // uniforms
-        vec3 n = normalize(v_normal);
-        vec3 t = normalize(v_tangent - dot(v_tangent, v_normal) * v_normal);
-        vec3 b = cross(n, t);
-        mat3 tbn = mat3(t, b, n);
-        vec3 new_normal = tbn * normalize(vec3(2.0 * texture(u_normalMap, v_texCoord) - 1.0) + vec3(0.0, 0.0, 0.5));
-
-        vec3 reflection = reflect(u_sunDirection, new_normal);
-        float specular = dot(reflection, u_cameraDirection);
-        // make it zero or positive
-        specular = specular * (sign(specular) + 1.0) / 2.0;
-        specular = pow(specular, 12.0);
-        float diffuse = dot(-u_sunDirection, new_normal);
-        diffuse = max(diffuse, u_ambientLight);
-        float color_indicator = texture(u_texture, v_texCoord).r;
-        vec3 base_color = color_indicator * v_foregroundColor + (1.0 - color_indicator) * v_backgroundColor;
-        f_color = vec4(base_color * diffuse + vec3(specular), 1.0);
+void main()
+{
+    vec3 n = normalize(v_normal);
+    vec3 t = normalize(v_tangent - dot(v_tangent, v_normal) * v_normal);
+    vec3 b = cross(n, t);
+    mat3 tbn = mat3(t, b, n);
+    vec4 textureValue;
+    switch (v_pieceType) {
+    case 0u: textureValue = texture(u_normalMap[0], v_texCoord); break;
+    case 1u: textureValue = texture(u_normalMap[1], v_texCoord); break;
+    case 2u: textureValue = texture(u_normalMap[2], v_texCoord); break;
+    case 3u: textureValue = texture(u_normalMap[3], v_texCoord); break;
+    case 4u: textureValue = texture(u_normalMap[4], v_texCoord); break;
+    case 5u: textureValue = texture(u_normalMap[5], v_texCoord); break;
+    case 6u: textureValue = texture(u_normalMap[6], v_texCoord); break;
     }
-    `)
+    vec3 new_normal = tbn * normalize(vec3(2.0 * textureValue - 1.0) + vec3(0.0, 0.0, 0.5));
+
+    vec3 reflection = reflect(u_sunDirection, new_normal);
+    float specular = dot(reflection, u_cameraDirection);
+    // make it zero or positive
+    specular = specular * (sign(specular) + 1.0) / 2.0;
+    specular = pow(specular, 12.0);
+    float diffuse = dot(-u_sunDirection, new_normal);
+    diffuse = max(diffuse, u_ambientLight);
+    switch (v_pieceType) {
+    case 0u: textureValue = texture(u_texture[0], v_texCoord); break;
+    case 1u: textureValue = texture(u_texture[1], v_texCoord); break;
+    case 2u: textureValue = texture(u_texture[2], v_texCoord); break;
+    case 3u: textureValue = texture(u_texture[3], v_texCoord); break;
+    case 4u: textureValue = texture(u_texture[4], v_texCoord); break;
+    case 5u: textureValue = texture(u_texture[5], v_texCoord); break;
+    case 6u: textureValue = texture(u_texture[6], v_texCoord); break;
+    }
+    float color_indicator = textureValue.r;
+    vec3 base_color = color_indicator * v_foregroundColor + (1.0 - color_indicator) * v_backgroundColor;
+    f_color = vec4(base_color * diffuse + vec3(specular), 1.0) + vec4(float(v_pieceType) * .0001);
+}
+`)
     gl.compileShader(fragmentShader)
     assert(
         gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS),
